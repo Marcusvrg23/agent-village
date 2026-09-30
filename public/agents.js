@@ -122,6 +122,7 @@ export function renderAgents(state) {
       else if (observed?.state === 'ERROR') displayState = 'failed';
       else if (observed?.state === 'DONE') displayState = role === 'LEAD' && observed.summary === 'Turn complete' ? 'done' : 'waiting';
       else displayState = 'idle';
+      if (/Waiting/.test(observed?.summary ?? '')) displayState = 'waiting';
       summary = `Fase operacional · ${observed?.summary ?? 'Waiting'}`;
     }
     card.dataset.liveState = displayState;

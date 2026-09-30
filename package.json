@@ -1,16 +1,22 @@
 {
   "name": "codex-ops-room",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "private": true,
   "description": "Local, read-only live monitor for Codex session activity.",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "start": "node server.js",
     "test": "node --test",
-    "inspect:rollout": "node scripts/inspect-rollout.mjs"
+    "inspect:rollout": "node scripts/inspect-rollout.mjs",
+    "desktop": "electron .",
+    "package:windows": "node scripts/package-windows.mjs"
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "@electron/packager": "20.3.0",
+    "electron": "44.5.0"
   }
 }
-

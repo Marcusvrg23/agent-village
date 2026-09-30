@@ -74,10 +74,14 @@ class MonitorState {
     this.normalizer = new EventNormalizer();
     const source = path.basename(file.path);
     const id = source.match(/([0-9a-f]{8}-[0-9a-f-]{27,})/i)?.[1] ?? null;
+    this.state.project = 'Unknown';
     this.registry.select(id);
     readSessionMetadata(file.path).then((record) => {
       if (this.state.session.id === id && record) {
         this.registry.metadata(record);
+        if (this.state.project === 'Unknown' && typeof record.payload?.cwd === 'string') {
+          this.state.project = path.win32.basename(record.payload.cwd.replaceAll('/', '\\')) || 'Unknown';
+        }
         scheduleBroadcast();
       }
     }).catch(() => {});
@@ -299,6 +303,7 @@ process.on('SIGTERM', shutdown);
 await watcher.start().catch((error) => monitor.error(error));
 server.listen(PORT, HOST, () => {
   const actualPort = server.address().port;
+  process.parentPort?.postMessage({ type: 'ready', port: actualPort });
   console.log(`[ops-room] http://${HOST}:${actualPort}`);
   console.log(`[ops-room] watching read-only: ${SESSIONS_ROOT}`);
 });

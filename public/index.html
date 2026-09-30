@@ -7,6 +7,7 @@
     <title>Codex Ops Room</title>
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="/agents.css">
+    <link rel="stylesheet" href="/sprites/sprites.css">
     <link rel="stylesheet" href="/life.css">
   </head>
   <body>
@@ -15,11 +16,32 @@
         <img class="room-art" src="/quality-ops-room-reference.webp" alt="Codex Ops Room com estações Explorer, Worker, Reviewer, QA e Lead">
         <div class="vignette" aria-hidden="true"></div>
         <div class="life-layer" aria-hidden="true">
-          <div class="actor explorer" data-role="EXPLORER" data-visual="idle" data-presence="standby"><i class="screen"></i><i class="sprite body"></i><i class="sprite head"></i><i class="cue"></i></div>
-          <div class="actor lead" data-role="LEAD" data-visual="idle" data-presence="standby"><i class="screen"></i><i class="sprite body"></i><i class="sprite head"></i><i class="cue"></i></div>
-          <div class="actor worker" data-role="WORKER" data-visual="idle" data-presence="standby"><i class="screen"></i><i class="sprite body"></i><i class="sprite head"></i><i class="cue"></i></div>
-          <div class="actor reviewer" data-role="REVIEWER" data-visual="idle" data-presence="standby"><i class="screen"></i><i class="sprite body"></i><i class="sprite head"></i><i class="cue"></i></div>
-          <div class="actor qa" data-role="QA" data-visual="idle" data-presence="standby"><i class="screen"></i><i class="sprite body"></i><i class="sprite head"></i><i class="cue"></i></div>
+          <!-- Layers derived from the official artwork by scripts/build-sprites.cjs; see public/sprites. -->
+          <div class="station lead" data-role="LEAD" data-visual="idle" data-presence="standby" data-action="IDLE_SIT" data-pose="sit" data-facing="right" data-walking="false">
+            <img class="plate" src="/sprites/lead-plate.png" alt=""><i class="screen"></i>
+            <div class="rig"><div class="figure"><div class="bob"><img class="body" src="/sprites/lead-body.png" alt=""><img class="head" src="/sprites/lead-head.png" alt=""><i class="lids"><i></i><i></i></i></div></div><i class="cue"></i><i class="say" data-show="false"></i></div>
+            <img class="laptop" src="/sprites/lead-laptop.png" alt=""><img class="monitor" src="/sprites/lead-monitor.png" alt="">
+          </div>
+          <div class="station explorer" data-role="EXPLORER" data-visual="idle" data-presence="standby" data-action="IDLE_SIT" data-pose="sit" data-facing="right" data-walking="false">
+            <img class="plate" src="/sprites/explorer-plate.png" alt=""><i class="screen"></i>
+            <div class="rig"><div class="figure"><div class="bob"><i class="legs"><i></i><i></i></i><img class="seatlegs" src="/sprites/explorer-seatlegs.png" alt=""><img class="body" src="/sprites/explorer-body.png" alt=""><img class="head" src="/sprites/explorer-head.png" alt=""></div></div><i class="cue"></i><i class="say" data-show="false"></i></div>
+            <img class="chair" src="/sprites/explorer-chair.png" alt=""><img class="arm" src="/sprites/explorer-arm.png" alt=""><img class="sign" src="/sprites/explorer-sign.png" alt="">
+          </div>
+          <div class="station worker" data-role="WORKER" data-visual="idle" data-presence="standby" data-action="IDLE_SIT" data-pose="sit" data-facing="right" data-walking="false">
+            <img class="plate" src="/sprites/worker-plate.png" alt=""><i class="screen"></i>
+            <div class="rig"><div class="figure"><div class="bob"><i class="legs"><i></i><i></i></i><img class="seatlegs" src="/sprites/worker-seatlegs.png" alt=""><img class="body" src="/sprites/worker-body.png" alt=""><img class="head" src="/sprites/worker-head.png" alt=""></div></div><i class="cue"></i><i class="say" data-show="false"></i></div>
+            <img class="chair" src="/sprites/worker-chair.png" alt=""><img class="sign" src="/sprites/worker-sign.png" alt="">
+          </div>
+          <div class="station reviewer" data-role="REVIEWER" data-visual="idle" data-presence="standby" data-action="IDLE_SIT" data-pose="sit" data-facing="right" data-walking="false">
+            <img class="plate" src="/sprites/reviewer-plate.png" alt=""><i class="screen"></i>
+            <div class="rig"><div class="figure"><div class="bob"><i class="legs"><i></i><i></i></i><img class="seatlegs" src="/sprites/reviewer-seatlegs.png" alt=""><img class="body" src="/sprites/reviewer-body.png" alt=""><img class="head" src="/sprites/reviewer-head.png" alt=""></div></div><i class="cue"></i><i class="say" data-show="false"></i></div>
+            <img class="chair" src="/sprites/reviewer-chair.png" alt=""><img class="arm" src="/sprites/reviewer-arm.png" alt=""><img class="sign" src="/sprites/reviewer-sign.png" alt="">
+          </div>
+          <div class="station qa" data-role="QA" data-visual="idle" data-presence="standby" data-action="IDLE_SIT" data-pose="sit" data-facing="right" data-walking="false">
+            <img class="plate" src="/sprites/qa-plate.png" alt=""><i class="screen"></i>
+            <div class="rig"><div class="figure"><div class="bob"><i class="legs"><i></i><i></i></i><img class="body" src="/sprites/qa-body.png" alt=""><img class="head" src="/sprites/qa-head.png" alt=""></div></div><i class="cue"></i><i class="say" data-show="false"></i></div>
+            <img class="chair" src="/sprites/qa-chair.png" alt=""><img class="sign" src="/sprites/qa-sign.png" alt="">
+          </div>
         </div>
         <div class="bubble-layer" aria-hidden="true">
           <div class="life-bubble explorer" data-role="EXPLORER" data-show="false"><span></span></div>

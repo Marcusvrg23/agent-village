@@ -106,6 +106,14 @@ export class AmbientDirector {
     }
     return this.current;
   }
+
+  // A character that walked away from its desk says the next line of the same rotation (IDLE only).
+  say(role, now, mode = ROOM_MODES.IDLE) {
+    if (mode !== ROOM_MODES.IDLE) return null;
+    const text = this.phrases[this.phraseIndex++ % this.phrases.length];
+    this.current = { role, text, kind: 'ambient', since: now, until: now + this.config.ambientShowMs, attached: true };
+    return this.current;
+  }
 }
 
 // Task bubbles only restate real normalized events or verified communication endpoints.

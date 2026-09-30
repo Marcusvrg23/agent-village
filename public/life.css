@@ -1,5 +1,7 @@
-/* V1.1 Life Mode. Characters move through feathered crops of the same official artwork;
-   geometry is in source-image pixels (1672 × 941) scaled by the stage container. */
+/* Life Mode (V1.2). Each station is layered from assets derived from the official artwork
+   (public/sprites, built by scripts/build-sprites.cjs): a clean plate where the character sat,
+   the character as separate body/head sprites, and occluders (chairs, signs, desk objects) in front.
+   Geometry is in source-image pixels (1672 x 941) scaled by the stage container. */
 .life-layer,
 .bubble-layer {
   --u: calc(100cqw / 1672);
@@ -9,65 +11,149 @@
 }
 .life-layer { z-index: 1; }
 .bubble-layer { z-index: 3; }
-.actor { position: absolute; inset: 0; }
 
-.actor.explorer { --bx: 352; --by: 262; --bw: 130; --bh: 178; --hx: 364; --hy: 262; --hw: 104; --hh: 94; --sx: 274; --sy: 247; --sw: 94; --sh: 76; --accent: #5ca7ff; }
-.actor.lead { --bx: 734; --by: 266; --bw: 172; --bh: 150; --hx: 752; --hy: 268; --hw: 112; --hh: 104; --sx: 884; --sy: 298; --sw: 100; --sh: 46; --accent: #ffae42; }
-.actor.worker { --bx: 1230; --by: 300; --bw: 144; --bh: 186; --hx: 1250; --hy: 304; --hw: 102; --hh: 92; --sx: 1277; --sy: 262; --sw: 100; --sh: 70; --accent: #77dd79; }
-.actor.reviewer { --bx: 356; --by: 554; --bw: 158; --bh: 176; --hx: 390; --hy: 557; --hw: 116; --hh: 98; --sx: 322; --sy: 528; --sw: 94; --sh: 100; --accent: #bd78ff; }
-.actor.qa { --bx: 1078; --by: 612; --bw: 154; --bh: 160; --hx: 1098; --hy: 615; --hw: 116; --hh: 94; --sx: 1205; --sy: 648; --sw: 105; --sh: 76; --accent: #ff6d70; }
+.station { position: absolute; inset: 0; --rise: 20; }
+.station.lead { --rise: 16; --accent: #ffae42; }
+.station.explorer { --accent: #5ca7ff; }
+.station.worker { --accent: #77dd79; }
+.station.reviewer { --accent: #bd78ff; }
+.station.qa { --accent: #ff6d70; }
+.station img,
+.station .legs {
+  position: absolute;
+  left: calc(var(--x) * var(--u));
+  top: calc(var(--y) * var(--u));
+  width: calc(var(--w) * var(--u));
+  height: calc(var(--h) * var(--u));
+  max-width: none;
+  user-select: none;
+}
+.station i { position: absolute; display: block; font-style: normal; }
+.station .plate { z-index: 1; }
+.station .screen { z-index: 2; }
+.station .rig { z-index: 3; }
+.station .chair, .station .arm, .station .sign, .station .laptop, .station .monitor { z-index: 4; }
 
-.actor i { position: absolute; display: block; font-style: normal; }
-.sprite {
-  background-image: url("/quality-ops-room-reference.webp");
-  background-repeat: no-repeat;
-  background-size: calc(1672 * var(--u)) auto;
-  will-change: translate, rotate;
+/* Poses come from character-mode.js at a low sprite frame rate (see POSE_FPS) through CSS variables:
+   position (--px/--py), stand-up lift, facing, body bob/tilt, head turn/nod, leg swing and eyelids.
+   Nothing here animates continuously, so a still room produces no frames. */
+.rig {
+  --px: 0; --py: 0; --lift: 0; --flip: 1; --body-y: 0; --body-rot: 0; --head-rot: 0; --head-x: 0; --head-y: 0; --leg1: 0; --leg2: 0; --lids: 0;
+  position: absolute;
+  inset: 0;
+  translate: calc(var(--px) * var(--u)) calc(var(--py) * var(--u));
 }
-.sprite.body {
-  left: calc(var(--bx) * var(--u));
-  top: calc(var(--by) * var(--u));
-  width: calc(var(--bw) * var(--u));
-  height: calc(var(--bh) * var(--u));
-  background-position: calc(var(--bx) * var(--u) * -1) calc(var(--by) * var(--u) * -1);
-  transform-origin: 50% 100%;
-  -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 58%, transparent 100%);
-  mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 58%, transparent 100%);
+.figure {
+  position: absolute;
+  inset: 0;
+  transform-origin: calc(var(--cx) * var(--u)) calc(var(--cy) * var(--u));
+  translate: 0 calc(var(--lift) * -1 * var(--u));
+  scale: var(--flip) 1;
 }
-.sprite.head {
-  left: calc(var(--hx) * var(--u));
-  top: calc(var(--hy) * var(--u));
-  width: calc(var(--hw) * var(--u));
-  height: calc(var(--hh) * var(--u));
-  background-position: calc(var(--hx) * var(--u) * -1) calc(var(--hy) * var(--u) * -1);
-  transform-origin: 50% 92%;
-  -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 66%, transparent 100%);
-  mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 66%, transparent 100%);
+.bob {
+  position: absolute;
+  inset: 0;
+  transform-origin: calc(var(--cx) * var(--u)) calc(var(--hip-y, var(--cy)) * var(--u));
+  translate: 0 calc(var(--body-y) * var(--u));
+  rotate: calc(var(--body-rot) * 1deg);
+}
+.station .head {
+  transform-origin: 50% 88%;
+  translate: calc(var(--head-x) * var(--u)) calc(var(--head-y) * var(--u));
+  rotate: calc(var(--head-rot) * 1deg);
 }
 
-.screen {
-  left: calc(var(--sx) * var(--u));
-  top: calc(var(--sy) * var(--u));
-  width: calc(var(--sw) * var(--u));
-  height: calc(var(--sh) * var(--u));
+/* Painted seated legs while sitting; drawn legs unfold when standing. */
+.station[data-pose="stand"] .seatlegs { opacity: 0; }
+.station .legs {
+  --x: calc(var(--hip-x) - 13);
+  --y: calc(var(--hip-y) - 6);
+  --w: 26;
+  --h: 40;
+  opacity: 0;
+}
+.station[data-pose="stand"] .legs { opacity: 1; }
+.legs i {
+  top: 0;
+  width: calc(10 * var(--u));
+  height: calc(31 * var(--u));
+  border-radius: calc(3 * var(--u)) calc(3 * var(--u)) calc(2 * var(--u)) calc(2 * var(--u));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--pants) 80%, #fff 20%), var(--pants) 45%, color-mix(in srgb, var(--pants) 70%, #000 30%));
+  transform-origin: 50% 0;
+  box-shadow: inset 0 calc(-5 * var(--u)) 0 var(--sock);
+}
+.legs i:first-child { left: calc(1 * var(--u)); rotate: calc(var(--leg1) * 1deg); }
+.legs i:last-child { left: calc(14 * var(--u)); rotate: calc(var(--leg2) * 1deg); }
+.legs i::after {
+  content: "";
+  position: absolute;
+  left: calc(-1.5 * var(--u));
+  bottom: calc(-4 * var(--u));
+  width: calc(13 * var(--u));
+  height: calc(7 * var(--u));
+  border-radius: calc(3 * var(--u)) calc(3 * var(--u)) calc(2 * var(--u)) calc(2 * var(--u));
+  background: var(--shoe);
+  box-shadow: 0 calc(1 * var(--u)) 0 rgb(0 0 0 / 35%);
+}
+
+/* Lead faces the room: real eyelids for blinking, moving with the head (same pivot and pose). */
+.station .lids {
+  inset: 0;
+  transform-origin: calc(var(--hox) * var(--u)) calc(var(--hoy) * var(--u));
+  translate: calc(var(--head-x) * var(--u)) calc(var(--head-y) * var(--u));
+  rotate: calc(var(--head-rot) * 1deg);
+}
+.lids i {
+  z-index: 1;
+  background: #f3bb95;
+  border-bottom: calc(1.6 * var(--u)) solid #3b2018;
+  border-radius: 50% 50% 45% 45%;
+  transform-origin: 50% 0;
+  scale: 1 var(--lids);
+}
+.lids i:first-child { left: calc(803 * var(--u)); top: calc(332 * var(--u)); width: calc(18 * var(--u)); height: calc(20 * var(--u)); }
+.lids i:last-child { left: calc(835 * var(--u)); top: calc(325 * var(--u)); width: calc(16 * var(--u)); height: calc(20 * var(--u)); }
+
+/* ---- Monitor glow and status cues (real station visuals) ---- */
+.station .screen {
+  --phase: 0;
   overflow: hidden;
   border-radius: calc(4 * var(--u));
   background: radial-gradient(ellipse at 50% 45%, color-mix(in srgb, var(--accent) 55%, white 10%), transparent 72%);
   mix-blend-mode: screen;
   opacity: 0.16;
-  animation: screen-idle 5.2s ease-in-out infinite;
 }
-.screen::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  opacity: 0;
+.station.explorer .screen { left: calc(274 * var(--u)); top: calc(247 * var(--u)); width: calc(94 * var(--u)); height: calc(76 * var(--u)); }
+.station.lead .screen { left: calc(884 * var(--u)); top: calc(298 * var(--u)); width: calc(100 * var(--u)); height: calc(46 * var(--u)); }
+.station.worker .screen { left: calc(1190 * var(--u)); top: calc(262 * var(--u)); width: calc(80 * var(--u)); height: calc(90 * var(--u)); }
+.station.reviewer .screen { left: calc(322 * var(--u)); top: calc(528 * var(--u)); width: calc(70 * var(--u)); height: calc(95 * var(--u)); }
+.station.qa .screen { left: calc(1212 * var(--u)); top: calc(652 * var(--u)); width: calc(100 * var(--u)); height: calc(72 * var(--u)); }
+.screen::after { content: ""; position: absolute; inset: 0; opacity: 0; }
+.station[data-presence="standby"] .screen { opacity: 0.12; }
+.room-stage[data-life-mode="TASK"] .station[data-presence="standby"] .screen { opacity: 0.05; }
+.station[data-presence="active"] .screen { opacity: calc(0.32 + 0.16 * var(--pulse, 0)); }
+.station[data-visual="exploring"] .screen::after { opacity: 1; background: linear-gradient(90deg, transparent 0 40%, rgb(255 255 255 / 85%) 50%, transparent 60% 100%); translate: calc((var(--phase) * 200% - 100%)) 0; }
+.station[data-visual="working"] .screen::after {
+  opacity: 0.9;
+  inset: 0 0 -100%;
+  background: repeating-linear-gradient(180deg, rgb(255 255 255 / 70%) 0 calc(2 * var(--u)), transparent calc(2 * var(--u)) calc(7 * var(--u)));
+  -webkit-mask-image: linear-gradient(90deg, #000 0 55%, transparent 80%);
+  mask-image: linear-gradient(90deg, #000 0 55%, transparent 80%);
+  translate: 0 calc(var(--phase) * -50%);
 }
+.station[data-visual="reviewing"] .screen::after { opacity: 1; inset: 0 0 auto; height: 18%; background: rgb(255 255 255 / 55%); translate: 0 calc(20% + var(--wave, 0) * 400%); }
+.station[data-visual="testing"] .screen { --accent: #7df0a8; }
+.station[data-visual="testing"] .screen::after { opacity: 1; inset: auto 8% 10% 8%; height: 14%; border-radius: calc(3 * var(--u)); background: #b4ffcf; transform-origin: 0 50%; scale: var(--phase) 1; }
+.station[data-visual="planning"] .screen,
+.station[data-visual="integrating"] .screen { opacity: calc(0.36 + 0.14 * var(--pulse, 0)); }
+.station[data-visual="done"] .screen { --accent: #6ff09a; opacity: 0.32; }
+.station[data-visual="failed"] .screen { --accent: #ff4f5e; opacity: 0.42; }
 
-.actor .cue {
+.station .cue {
   display: grid;
-  left: calc((var(--hx) + var(--hw) * 0.5 - 22) * var(--u));
-  top: calc((var(--hy) - 30) * var(--u));
+  z-index: 5;
+  left: calc((var(--cx) - 22) * var(--u));
+  top: calc((var(--top) - 30) * var(--u));
   width: calc(44 * var(--u));
   height: calc(24 * var(--u));
   place-items: center;
@@ -81,91 +167,41 @@
   transition: opacity 260ms ease, scale 260ms ease;
 }
 .cue::before { content: ""; }
+.station[data-visual="waiting"] .cue,
+.station[data-visual="planning"] .cue,
+.station[data-visual="integrating"] .cue,
+.station[data-visual="done"] .cue,
+.station[data-visual="failed"] .cue { opacity: 1; scale: 1; }
+.station[data-visual="waiting"] .cue::before,
+.station[data-visual="planning"] .cue::before { content: "• • •"; letter-spacing: 0.05em; }
+.station[data-visual="planning"] .cue { background: #ffe2b0; }
+.station[data-visual="integrating"] .cue { background: #ffd08a; }
+.station[data-visual="integrating"] .cue::before { content: "⇄"; }
+.station[data-visual="done"] .cue { background: #aef7c6; }
+.station[data-visual="done"] .cue::before { content: "✓"; }
+.station[data-visual="failed"] .cue { color: white; background: #e0414f; }
+.station[data-visual="failed"] .cue::before { content: "!"; }
 
-/* Idle / standby: breathing, small head movement, low monitor glow. Offsets keep stations out of sync. */
-.actor .sprite { animation: breathe 4.6s ease-in-out infinite; }
-.actor .sprite.head { animation: breathe 4.6s ease-in-out infinite, sway 7.4s ease-in-out infinite; }
-.life-layer .actor.explorer i { animation-delay: -0.4s; }
-.life-layer .actor.lead i { animation-delay: -2.1s; }
-.life-layer .actor.worker i { animation-delay: -3.3s; }
-.life-layer .actor.reviewer i { animation-delay: -1.2s; }
-.life-layer .actor.qa i { animation-delay: -2.8s; }
-.actor[data-presence="standby"] .screen { opacity: 0.12; }
-.room-stage[data-life-mode="TASK"] .actor[data-presence="standby"] .screen { animation: none; opacity: 0.05; }
-.room-stage[data-life-mode="TASK"] .actor[data-presence="standby"] .sprite { animation-duration: 6.4s; }
-.room-stage[data-life-mode="TASK"] .actor[data-presence="standby"] .sprite.head { animation-duration: 6.4s, 11s; }
-
-/* Real task states. */
-.actor[data-presence="active"] .screen { opacity: 0.36; animation: screen-live 1.6s ease-in-out infinite; }
-
-.actor[data-visual="exploring"] .sprite.head { animation: breathe 4.6s ease-in-out infinite, look-around 3.2s ease-in-out infinite; }
-.actor[data-visual="exploring"] .screen::after {
-  opacity: 1;
-  background: linear-gradient(90deg, transparent 0 40%, rgb(255 255 255 / 85%) 50%, transparent 60% 100%);
-  animation: scan 1.9s linear infinite;
+/* Ambient line said by a character away from its desk; moves with the character. */
+.station .say {
+  translate: 0 calc(var(--lift) * -1 * var(--u));
+  z-index: 6;
+  left: calc((var(--cx) - 20) * var(--u));
+  top: calc((var(--top) - var(--rise) - 34) * var(--u));
+  padding: calc(4 * var(--u)) calc(10 * var(--u));
+  color: #d6ecf9;
+  font: 700 calc(14 * var(--u)) / 1.2 Inter, ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  white-space: nowrap;
+  border: calc(2 * var(--u)) solid #5b87a3;
+  border-radius: calc(16 * var(--u));
+  background: #0b1f33;
+  box-shadow: 0 calc(3 * var(--u)) calc(10 * var(--u)) rgb(0 0 0 / 35%);
+  transition: opacity 240ms ease, scale 240ms ease;
+  transform-origin: 20% 100%;
 }
+.station .say[data-show="false"] { opacity: 0; scale: 0.9; }
 
-.actor[data-visual="working"] .sprite.body,
-.actor[data-visual="testing"] .sprite.body { animation: typing 0.34s steps(2, end) infinite; }
-.actor[data-visual="working"] .sprite.head,
-.actor[data-visual="testing"] .sprite.head { animation: typing 0.34s steps(2, end) infinite, focus 3.6s ease-in-out infinite; }
-.actor[data-visual="working"] .screen::after {
-  opacity: 0.9;
-  inset: 0 0 -100%;
-  background: repeating-linear-gradient(180deg, rgb(255 255 255 / 70%) 0 calc(2 * var(--u)), transparent calc(2 * var(--u)) calc(7 * var(--u)));
-  -webkit-mask-image: linear-gradient(90deg, #000 0 55%, transparent 80%);
-  mask-image: linear-gradient(90deg, #000 0 55%, transparent 80%);
-  animation: scroll-code 1.4s linear infinite;
-}
-
-.actor[data-visual="reviewing"] .sprite.head { animation: breathe 4.6s ease-in-out infinite, read 4.2s ease-in-out infinite; }
-.actor[data-visual="reviewing"] .screen::after {
-  opacity: 1;
-  inset: 0 0 auto;
-  height: 18%;
-  background: rgb(255 255 255 / 55%);
-  animation: read-line 3.6s ease-in-out infinite;
-}
-
-.actor[data-visual="testing"] .screen { --accent: #7df0a8; }
-.actor[data-visual="testing"] .screen::after {
-  opacity: 1;
-  inset: auto 8% 10% 8%;
-  height: 14%;
-  border-radius: calc(3 * var(--u));
-  background: #b4ffcf;
-  transform-origin: 0 50%;
-  animation: progress 2.4s ease-in-out infinite;
-}
-
-.actor[data-visual="planning"] .screen,
-.actor[data-visual="integrating"] .screen { opacity: 0.4; animation: screen-live 1.1s ease-in-out infinite; }
-.actor[data-visual="integrating"] .sprite.head { animation: breathe 4.6s ease-in-out infinite, look-around 2.6s ease-in-out infinite; }
-
-.actor[data-visual="waiting"] .sprite { animation-duration: 6.2s; }
-.actor[data-visual="waiting"] .sprite.head { animation: breathe 6.2s ease-in-out infinite, ponder 5s ease-in-out infinite; }
-
-.actor[data-visual="done"] .screen { --accent: #6ff09a; opacity: 0.32; animation: none; }
-.actor[data-visual="done"] .sprite.head { animation: breathe 4.6s ease-in-out infinite, nod 0.9s ease-out 2; }
-.actor[data-visual="failed"] .screen { --accent: #ff4f5e; opacity: 0.42; animation: warn 1.8s ease-in-out infinite; }
-
-/* Status cues above heads. */
-.actor[data-visual="waiting"] .cue,
-.actor[data-visual="planning"] .cue,
-.actor[data-visual="integrating"] .cue,
-.actor[data-visual="done"] .cue,
-.actor[data-visual="failed"] .cue { opacity: 1; scale: 1; }
-.actor[data-visual="waiting"] .cue::before,
-.actor[data-visual="planning"] .cue::before { content: "• • •"; letter-spacing: 0.05em; animation: dots 1.4s steps(3, end) infinite; }
-.actor[data-visual="planning"] .cue { background: #ffe2b0; }
-.actor[data-visual="integrating"] .cue { background: #ffd08a; }
-.actor[data-visual="integrating"] .cue::before { content: "⇄"; }
-.actor[data-visual="done"] .cue { background: #aef7c6; }
-.actor[data-visual="done"] .cue::before { content: "✓"; }
-.actor[data-visual="failed"] .cue { color: white; background: #e0414f; animation: alert 1.8s ease-in-out infinite; }
-.actor[data-visual="failed"] .cue::before { content: "!"; }
-
-/* Speech bubbles sit over the artwork's printed bubbles, hiding them while shown. */
+/* ---- Speech bubbles sit over the artwork's printed bubbles, hiding them while shown ---- */
 .life-bubble.explorer { --x: 444; --y: 229; --w: 118; --h: 64; --accent: #5ca7ff; }
 .life-bubble.lead { --x: 855; --y: 253; --w: 174; --h: 50; --accent: #ffae42; }
 .life-bubble.worker { --x: 1373; --y: 308; --w: 159; --h: 48; --accent: #77dd79; }
@@ -226,6 +262,14 @@
 }
 .life-bubble[data-kind="comm"] { border-color: var(--accent); box-shadow: 0 0 calc(12 * var(--u)) color-mix(in srgb, var(--accent) 70%, transparent); }
 
+/* Performance on integrated GPUs: moving parts get their own compositor layers (a pose change is a
+   cheap layer move, not a repaint of the artwork), and role cards, which sit over the animated
+   characters, drop the backdrop blur (re-blurring on every pose frame is the costliest part of a frame).
+   A slightly more opaque card background keeps their V1 look. */
+.rig, .figure, .bob, .station .head, .station .lids, .legs i, .lids i, .station .screen::after { will-change: translate, rotate, scale; }
+.station .screen { will-change: opacity; }
+.role-card { backdrop-filter: none; background: linear-gradient(145deg, rgb(7 22 39 / 94%), rgb(9 33 54 / 86%)); }
+
 /* HUD room mode + standby cards. */
 .life-row strong { display: flex !important; align-items: center; gap: 0.5cqw; }
 #life-mode {
@@ -240,89 +284,13 @@
 #life-mode[data-mode="COMPLETED"] { background: #ffc96b; }
 #last-activity { color: #9cacb8; font-size: 0.52cqw; font-weight: 700; }
 .role-card[data-presence="standby"] { opacity: 0.9; }
-.role-card[data-presence="standby"] .state-light { color: #6fa8c8; background: #6fa8c8; animation: standby-light 3.6s ease-in-out infinite; }
+.role-card[data-presence="standby"] .state-light { color: #6fa8c8; background: #6fa8c8; animation: none; opacity: 0.7; }
 .role-card[data-presence="standby"] .role-heading em { color: #8fb3c9; text-transform: uppercase; }
 
-@keyframes breathe {
-  0%, 100% { translate: 0 0; }
-  50% { translate: 0 calc(-1.6 * var(--u)); }
-}
-@keyframes sway {
-  0%, 100% { rotate: -1deg; }
-  30% { rotate: 1.4deg; }
-  62% { rotate: -0.4deg; }
-}
-@keyframes look-around {
-  0%, 100% { rotate: -2.6deg; }
-  45% { rotate: 2.8deg; }
-  70% { rotate: 1deg; }
-}
-@keyframes typing {
-  0% { translate: 0 0; }
-  100% { translate: 0 calc(0.9 * var(--u)); }
-}
-@keyframes focus {
-  0%, 100% { rotate: 0.4deg; }
-  50% { rotate: -0.8deg; }
-}
-@keyframes read {
-  0%, 100% { rotate: 0.6deg; }
-  50% { rotate: 2.4deg; }
-}
-@keyframes ponder {
-  0%, 100% { rotate: -2deg; }
-  50% { rotate: -3.2deg; }
-}
-@keyframes nod {
-  0%, 100% { rotate: 0deg; }
-  40% { rotate: 3deg; }
-}
-@keyframes screen-idle {
-  0%, 100% { opacity: 0.1; }
-  40% { opacity: 0.24; }
-  55% { opacity: 0.16; }
-}
-@keyframes screen-live {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 0.48; }
-}
-@keyframes scan {
-  from { translate: -100% 0; }
-  to { translate: 100% 0; }
-}
-@keyframes scroll-code {
-  from { translate: 0 0; }
-  to { translate: 0 -50%; }
-}
-@keyframes read-line {
-  0%, 100% { translate: 0 20%; }
-  50% { translate: 0 420%; }
-}
-@keyframes progress {
-  0% { scale: 0 1; }
-  80%, 100% { scale: 1 1; }
-}
-@keyframes warn {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 0.6; }
-}
-@keyframes alert {
-  0%, 100% { scale: 1; }
-  50% { scale: 1.12; }
-}
-@keyframes dots {
-  from { clip-path: inset(0 66% 0 0); }
-  to { clip-path: inset(0 0 0 0); }
-}
-@keyframes standby-light {
-  0%, 100% { opacity: 0.45; }
-  50% { opacity: 0.9; }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .actor i,
-  .actor i::before,
-  .actor i::after,
-  .role-card .state-light { animation: none !important; }
+  .station *,
+  .station *::before,
+  .station *::after,
+  .role-card .state-light { animation: none !important; transition: none !important; }
   .life-bubble { transition: none; }
 }

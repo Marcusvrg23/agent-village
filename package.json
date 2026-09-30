@@ -11,7 +11,8 @@
     "test": "node --test",
     "inspect:rollout": "node scripts/inspect-rollout.mjs",
     "desktop": "electron .",
-    "package:windows": "node scripts/package-windows.mjs"
+    "package:windows": "node scripts/package-windows.mjs",
+    "build:sprites": "electron scripts/build-sprites.cjs"
   },
   "engines": {
     "node": ">=20"

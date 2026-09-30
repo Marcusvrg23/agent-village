@@ -40,7 +40,15 @@ Camada visual só no frontend (`public/life-mode.js`, `life-view.js`, `life.css`
 - **LIVE IDLE**: sem tarefa real recente. As cinco estações ficam presentes como *standby*, com respiração, cabeça e brilho de monitor sutis, e uma frase ambiente por vez em rotação local determinística ("Ready", "Waiting for tasks", …). Frases ambiente têm balão escuro e não representam atividade do Codex.
 - **LIVE TASK**: evento operacional real nos últimos 45 s (mesma janela do registry) ou crescimento do rollout durante a tarefa. Frases ambiente param. Só estações com estado real verificado animam (exploring, working, reviewing, testing, waiting, planning, integrating, done, failed); as demais ficam *standby*. Balões brancos repetem o resumo normalizado do evento; balões de comunicação exigem origem e destino verificados.
 - **COMPLETED SNAPSHOT**: `task_complete` (ou erro de sessão) é o evento mais recente. Dura 12 s e volta sozinho para LIVE IDLE; falha de ferramenta não encerra a tarefa. Sem evento de conclusão, a tarefa volta a IDLE após 45 s sem atividade.
-- O HUD mostra o modo e "Last activity: Ns ago". Os personagens são recortes esfumados da própria arte oficial, animados com CSS (`translate`/`rotate`); a arte não é substituída. `prefers-reduced-motion` desliga essas animações.
+- O HUD mostra o modo e "Last activity: Ns ago".
+
+### Personagens vivos (V1.2)
+
+- Cada estação é montada em camadas derivadas da arte oficial (que não é alterada): uma *plate* limpa onde o personagem estava sentado, o personagem recortado (corpo/cabeça), e oclusores à frente (cadeira, placa, objetos da mesa). Assim o personagem pode levantar e sair sem duplicar nem deixar fantasma. Os assets ficam em `public/sprites/` e são regenerados com `npm run build:sprites` (determinístico, só Canvas local; a geometria desenhada à mão está em `scripts/sprite-lib/stations.cjs`, e o build recusa qualquer retoque que copie pixels de um personagem).
+- `public/character-mode.js` é uma máquina de estados determinística: IDLE_SIT, BLINK, LOOK_LEFT/RIGHT, HEAD_NOD, TYPE, WORK, STAND_UP, IDLE_STAND, WALK_AWAY, WALK_RETURN, SIT_DOWN, CELEBRATE, ERROR_REACTION.
+- Em LIVE IDLE os personagens piscam, olham em volta, digitam e, em turnos (um por vez, a cada ~11 s), levantam, andam um trecho curto perto da própria mesa, dizem uma frase ambiente, voltam e sentam. Em tarefa real, o estado normalizado real comanda a animação; quem estiver andando volta para a mesa antes de trabalhar, e ninguém passeia fora de IDLE.
+- Desempenho: as poses são quadros de sprite a 10 fps (estilo jogos isométricos clássicos) aplicados em camadas do compositor; sem movimento, nenhum quadro é desenhado. Medido nesta máquina (GPU Intel HD): ~36% de um núcleo com a sala viva vs ~27% da V1 sem Life Mode.
+- `prefers-reduced-motion` mantém todos sentados e parados.
 
 ## Verificação de gravação real
 

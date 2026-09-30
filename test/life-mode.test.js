@@ -200,9 +200,11 @@ test('Life: stale activity is detected from any signal and reported as elapsed t
 });
 
 test('Life Mode has no LLM, network, or extra SSE dependency', async () => {
-  const pure = await readFile(new URL('../public/life-mode.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(pure, /^\s*import\s/m, 'pure logic must not import anything');
-  const files = ['life-mode.js', 'life-view.js', 'life.css'];
+  for (const name of ['life-mode.js', 'character-mode.js']) {
+    const pure = await readFile(new URL(`../public/${name}`, import.meta.url), 'utf8');
+    assert.doesNotMatch(pure, /^\s*import\s/m, `${name} must not import anything`);
+  }
+  const files = ['life-mode.js', 'life-view.js', 'life.css', 'character-mode.js', 'sprites/sprites.css'];
   for (const name of files) {
     const source = await readFile(new URL(`../public/${name}`, import.meta.url), 'utf8');
     assert.doesNotMatch(source, /\bfetch\s*\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon|https?:\/\//, name);

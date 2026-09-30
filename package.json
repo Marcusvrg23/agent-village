@@ -1,0 +1,16 @@
+{
+  "name": "codex-ops-room",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Local, read-only live monitor for Codex session activity.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test",
+    "inspect:rollout": "node scripts/inspect-rollout.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
+

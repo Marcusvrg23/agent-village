@@ -1,0 +1,11 @@
+node_modules/
+.env
+.env.*
+logs/
+*.log
+dist/
+.tmp/
+tmp/
+coverage/
+*.pid
+

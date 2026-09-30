@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>Codex Ops Room</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="room-shell" aria-label="Codex Ops Room live monitor">
+      <section class="room-stage" aria-label="Operations room">
+        <img class="room-art" src="/quality-ops-room-reference.webp" alt="Codex Ops Room com estações Explorer, Worker, Reviewer, QA e Lead">
+        <div class="vignette" aria-hidden="true"></div>
+
+        <header class="hud" aria-label="Session status">
+          <div class="hud-title">
+            <span class="live-dot" aria-hidden="true"></span>
+            <span>CODEX OPS ROOM</span>
+            <span id="connection" class="connection" data-online="false">CONNECTING</span>
+          </div>
+          <div class="hud-grid">
+            <div><span>PROJECT</span><strong id="project">Unknown</strong></div>
+            <div><span>SESSION</span><strong id="session-status">IDLE</strong></div>
+            <div class="wide"><span>MODE</span><strong id="mode">SINGLE AGENT / ACTIVITY VIEW</strong></div>
+            <div class="wide"><span>SOURCE</span><strong id="source">Waiting for rollout</strong></div>
+          </div>
+        </header>
+
+        <aside class="progress-panel" aria-label="Objective progress">
+          <span>OBJECTIVE PROGRESS</span>
+          <strong id="progress">No measured progress</strong>
+        </aside>
+
+        <article class="role-card explorer" data-role="EXPLORER" data-state="IDLE">
+          <div class="role-heading"><span class="state-light"></span><strong>EXPLORER</strong><em>IDLE</em></div>
+          <p>Awaiting observable reading activity</p>
+        </article>
+
+        <article class="role-card worker" data-role="WORKER" data-state="IDLE">
+          <div class="role-heading"><span class="state-light"></span><strong>WORKER</strong><em>IDLE</em></div>
+          <p>Awaiting observable edit activity</p>
+        </article>
+
+        <article class="role-card reviewer" data-role="REVIEWER" data-state="IDLE">
+          <div class="role-heading"><span class="state-light"></span><strong>REVIEWER</strong><em>IDLE</em></div>
+          <p>Awaiting observable review activity</p>
+        </article>
+
+        <article class="role-card qa" data-role="QA" data-state="IDLE">
+          <div class="role-heading"><span class="state-light"></span><strong>QA / TEST RUNNER</strong><em>IDLE</em></div>
+          <p>Awaiting observable test activity</p>
+        </article>
+
+        <article class="role-card lead" data-role="LEAD" data-state="IDLE">
+          <div class="role-heading"><span class="state-light"></span><strong>LEAD / COORDENADOR</strong><em>IDLE</em></div>
+          <p>Waiting</p>
+        </article>
+
+        <aside class="activity-panel" aria-label="Live activity">
+          <div class="activity-heading"><span>LIVE ACTIVITY</span><small id="activity-updated">—</small></div>
+          <ol id="activity-list"><li class="empty">Waiting for observable events…</li></ol>
+        </aside>
+
+        <button id="debug-button" class="debug-button" type="button" aria-haspopup="dialog">DEBUG</button>
+      </section>
+    </main>
+
+    <dialog id="debug-dialog" class="debug-dialog">
+      <form method="dialog" class="debug-header">
+        <div><small>READ-ONLY TELEMETRY</small><h2>Parser Debug</h2></div>
+        <button value="close" aria-label="Close debug panel">×</button>
+      </form>
+      <dl id="debug-data"></dl>
+      <section>
+        <h3>Unknown events (summarized)</h3>
+        <ul id="debug-unknown"><li>None</li></ul>
+      </section>
+      <p class="read-only-note">No controls are exposed. The watcher opens rollout files for reading only.</p>
+    </dialog>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
+

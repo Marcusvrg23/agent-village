@@ -5,6 +5,7 @@ import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { EventNormalizer, ROLES } from './src/event-normalizer.js';
 import { SessionWatcher } from './src/session-watcher.js';
+import { AgentRegistry, readSessionMetadata } from './src/agent-registry.js';
 
 const HOST = '127.0.0.1';
 const PORT = Number.parseInt(process.env.OPS_ROOM_PORT ?? '4173', 10);
@@ -37,6 +38,7 @@ function initialRole(role) {
 class MonitorState {
   constructor() {
     this.normalizer = new EventNormalizer();
+    this.registry = new AgentRegistry();
     this.state = {
       project: 'Unknown',
       session: { status: 'IDLE', id: null, source: null, lastActivity: null },
@@ -72,6 +74,13 @@ class MonitorState {
     this.normalizer = new EventNormalizer();
     const source = path.basename(file.path);
     const id = source.match(/([0-9a-f]{8}-[0-9a-f-]{27,})/i)?.[1] ?? null;
+    this.registry.select(id);
+    readSessionMetadata(file.path).then((record) => {
+      if (this.state.session.id === id && record) {
+        this.registry.metadata(record);
+        scheduleBroadcast();
+      }
+    }).catch(() => {});
     this.state.session = {
       status: Date.now() - (file.activityMs ?? file.mtimeMs) < 45_000 ? 'ACTIVE' : 'IDLE',
       id,
@@ -94,6 +103,7 @@ class MonitorState {
 
   ingest(line) {
     const event = this.normalizer.ingestLine(line);
+    this.registry.ingest(line, event);
     if (event.recognized) {
       this.state.debug.recognizedEvents += 1;
       if (event.operational) this.state.debug.lastRecognized = `${event.sourceType}:${event.sourceSubtype}`;
@@ -165,7 +175,10 @@ const monitor = new MonitorState();
 const clients = new Set();
 
 function publicState() {
-  return monitor.state;
+  const room = monitor.registry.snapshot();
+  const multi = room.agents.some((a) => a.parentId) || room.agents.length > 1;
+  return { ...monitor.state, room, mode: multi ? 'MULTI_AGENT' : 'SINGLE_AGENT',
+    modeLabel: multi ? 'MULTI AGENT' : 'SINGLE AGENT / ACTIVITY VIEW' };
 }
 
 function sendSse(response, event, data) {
@@ -245,7 +258,7 @@ const server = http.createServer(async (request, response) => {
   }
   if (requestUrl.pathname === '/api/health') {
     response.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-    response.end(JSON.stringify({ ok: true, host: HOST, watcher: Boolean(monitor.state.debug.rolloutPath) }));
+    response.end(JSON.stringify({ ok: true, app: 'codex-ops-room', version: '1.0.0', host: HOST, watcher: Boolean(monitor.state.debug.rolloutPath) }));
     return;
   }
   if (requestUrl.pathname === '/events') {
@@ -283,8 +296,9 @@ async function shutdown() {
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
-await watcher.start();
+await watcher.start().catch((error) => monitor.error(error));
 server.listen(PORT, HOST, () => {
-  console.log(`[ops-room] http://${HOST}:${PORT}`);
+  const actualPort = server.address().port;
+  console.log(`[ops-room] http://${HOST}:${actualPort}`);
   console.log(`[ops-room] watching read-only: ${SESSIONS_ROOT}`);
 });

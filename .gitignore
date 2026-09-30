@@ -8,4 +8,5 @@ dist/
 tmp/
 coverage/
 *.pid
-
+release/
+ops-room-v1.png

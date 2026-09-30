@@ -6,12 +6,14 @@
     <meta name="color-scheme" content="dark">
     <title>Codex Ops Room</title>
     <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/agents.css">
   </head>
   <body>
     <main class="room-shell" aria-label="Codex Ops Room live monitor">
       <section class="room-stage" aria-label="Operations room">
         <img class="room-art" src="/quality-ops-room-reference.webp" alt="Codex Ops Room com estações Explorer, Worker, Reviewer, QA e Lead">
         <div class="vignette" aria-hidden="true"></div>
+        <svg id="agent-wires" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
 
         <header class="hud" aria-label="Session status">
           <div class="hud-title">
@@ -30,6 +32,8 @@
         <aside class="progress-panel" aria-label="Objective progress">
           <span>OBJECTIVE PROGRESS</span>
           <strong id="progress">No measured progress</strong>
+          <strong id="agent-budget">Active agents: 0 / 3</strong>
+          <span id="usage-total">Tokens: N/A</span>
         </aside>
 
         <article class="role-card explorer" data-role="EXPLORER" data-state="IDLE">
@@ -63,6 +67,7 @@
         </aside>
 
         <button id="debug-button" class="debug-button" type="button" aria-haspopup="dialog">DEBUG</button>
+        <button id="team-button" class="debug-button" type="button" aria-haspopup="dialog">AGENTS / USAGE</button>
       </section>
     </main>
 
@@ -79,7 +84,26 @@
       <p class="read-only-note">No controls are exposed. The watcher opens rollout files for reading only.</p>
     </dialog>
 
+    <dialog id="team-dialog" class="debug-dialog">
+      <form method="dialog" class="debug-header">
+        <div><small id="agent-count">0 observado(s)</small><h2>Agentes reais</h2></div>
+        <button aria-label="Close agents panel">×</button>
+      </form>
+      <section class="team-content">
+        <p id="budget-policy"></p>
+        <h3>Parent / child</h3><ul id="agent-tree"></ul>
+        <h3>Usage observado</h3><p id="usage-detail">N/A</p>
+        <h3>Comunicação real</h3><ul id="communication-list"></ul>
+      </section>
+    </dialog>
+    <dialog id="agent-dialog" class="debug-dialog">
+      <form method="dialog" class="debug-header">
+        <div><small>OBSERVABLE ACTIVITY</small><h2 id="agent-title">Agent detail</h2></div>
+        <button aria-label="Close agent detail">×</button>
+      </form>
+      <section id="agent-detail"></section>
+    </dialog>
+
     <script src="/app.js" type="module"></script>
   </body>
 </html>
-

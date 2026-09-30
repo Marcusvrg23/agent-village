@@ -1,0 +1,18 @@
+/* V1 overlays extend the official V0 composition without replacing it. */
+.role-card { cursor: pointer; }
+.role-card:focus-visible { outline: 3px solid #aff0ff; outline-offset: 3px; }
+#team-button { right: 6.2%; }
+#agent-budget { padding-top: .35cqw; font-size: .64cqw; }
+#agent-budget[data-exceeded="true"] { color: #ffb37d; }
+#usage-total { padding-top: .35cqw; }
+.team-content { padding-top: 20px !important; }
+.team-content p { font-size: 13px; line-height: 1.6; color: #c4dceb; }
+.team-content h3 { margin-top: 22px; }
+#agent-tree button { color: #e7f8ff; background: #122e42; border: 1px solid #376780; padding: 10px; margin: 4px 0; border-radius: 8px; text-align: left; cursor: pointer; }
+#agent-tree button:hover { background: #20465e; }
+#agent-detail { padding-top: 16px; }
+#agent-detail dl { padding: 0 0 20px; }
+.timeline { padding-left: 22px; font-size: 12px; line-height: 1.8; }
+#agent-wires { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; }
+#agent-wires line { stroke: #aaf5ff; stroke-width: .24; stroke-dasharray: 1 .6; filter: drop-shadow(0 0 2px #061a32); }
+#agent-wires text { fill: #fff; stroke: #072033; stroke-width: .5; paint-order: stroke; text-anchor: middle; font-size: 1.2px; }

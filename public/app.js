@@ -1,3 +1,5 @@
+import { renderAgents } from './agents.js';
+
 const elements = {
   project: document.querySelector('#project'),
   sessionStatus: document.querySelector('#session-status'),
@@ -110,6 +112,7 @@ function render(state) {
   for (const [role, data] of Object.entries(state.roles ?? {})) renderRole(role, data);
   renderActivity(state.activity);
   renderDebug(state);
+  renderAgents(state);
 }
 
 function setConnection(online) {

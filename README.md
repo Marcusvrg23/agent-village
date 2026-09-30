@@ -6,9 +6,15 @@ Monitor local, somente leitura, das sessões Codex. A Web V1 estende a V0 e pres
 
 Requer Node.js 20+; nenhuma dependência de produção.
 
+Comando único (backend local + watcher de rollouts + UI web, e abre o navegador):
+
 ```powershell
-node server.js
+npm run ops-room
 ```
+
+Sem abrir o navegador: `npm run ops-room -- --no-open` (ou `OPS_ROOM_NO_OPEN=1`). Equivalente sem navegador: `node server.js`.
+
+Se o Ops Room já estiver rodando na porta, o comando apenas abre o navegador nele (sem segundo servidor/watcher). Se outro programa ocupar a porta, ele encerra com erro e sugere outra porta, por exemplo `$env:OPS_ROOM_PORT=4174; npm run ops-room`.
 
 Abra http://127.0.0.1:4173. Outra porta: defina `OPS_ROOM_PORT` apenas no processo atual. O bind permanece `127.0.0.1`.
 
@@ -26,6 +32,15 @@ node --test
 - O monitor segue um rollout de cada vez. Os detalhes de outros agentes refletem evidências observadas, não garantem uma visão simultânea completa de todas as sessões. Após 45 segundos sem atividade, um estado ativo é exibido como idle; o último estado observado permanece nos detalhes.
 - `maxConcurrentAgents = 3` fica em `src/agent-registry.js`. O limite é informativo: alerta excesso, mas não cria, pausa nem encerra agentes. Política: tarefas pequenas → Lead; exploração → Explorer; implementação → Worker; review → Reviewer; testes → QA.
 - DEBUG mantém caminho, offset, contadores e tipos desconhecidos. AGENTS / USAGE mostra IDs pseudonimizados e apenas atividade operacional. Nenhuma API de modelo ou telemetria externa é usada.
+
+## Life Mode (V1.1)
+
+Camada visual só no frontend (`public/life-mode.js`, `life-view.js`, `life.css`), derivada do mesmo snapshot SSE. Nenhuma chamada a modelo, rede extra ou segunda conexão SSE.
+
+- **LIVE IDLE**: sem tarefa real recente. As cinco estações ficam presentes como *standby*, com respiração, cabeça e brilho de monitor sutis, e uma frase ambiente por vez em rotação local determinística ("Ready", "Waiting for tasks", …). Frases ambiente têm balão escuro e não representam atividade do Codex.
+- **LIVE TASK**: evento operacional real nos últimos 45 s (mesma janela do registry) ou crescimento do rollout durante a tarefa. Frases ambiente param. Só estações com estado real verificado animam (exploring, working, reviewing, testing, waiting, planning, integrating, done, failed); as demais ficam *standby*. Balões brancos repetem o resumo normalizado do evento; balões de comunicação exigem origem e destino verificados.
+- **COMPLETED SNAPSHOT**: `task_complete` (ou erro de sessão) é o evento mais recente. Dura 12 s e volta sozinho para LIVE IDLE; falha de ferramenta não encerra a tarefa. Sem evento de conclusão, a tarefa volta a IDLE após 45 s sem atividade.
+- O HUD mostra o modo e "Last activity: Ns ago". Os personagens são recortes esfumados da própria arte oficial, animados com CSS (`translate`/`rotate`); a arte não é substituída. `prefers-reduced-motion` desliga essas animações.
 
 ## Verificação de gravação real
 

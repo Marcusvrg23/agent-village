@@ -55,8 +55,9 @@ async function launch() {
   window.webContents.on('will-navigate', (event, url) => {
     if (!url.startsWith(`${origin}/`)) event.preventDefault();
   });
-  window.webContents.on('console-message', (_event, details) => {
-    if (details?.level === 'error') consoleErrors.push(details.message);
+  // Electron 44 puts level/message on the first argument; the positional level is deprecated.
+  window.webContents.on('console-message', (details, legacyLevel, legacyMessage) => {
+    if (details?.level === 'error' || legacyLevel === 3) consoleErrors.push(details?.message ?? legacyMessage);
   });
   backend.on('exit', (code) => {
     if (!quitting && !smoke) dialog.showErrorBox('Codex Ops Room', `O backend local foi encerrado (${code}). Reabra o aplicativo.`);

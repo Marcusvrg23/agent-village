@@ -101,7 +101,7 @@ function renderCommunications() {
 
 export function renderAgents(state) {
   current = state.room;
-  if (!current) return;
+  if (!current) return [];
   const { budget, usage } = current;
   el('#agent-budget').textContent = `Active agents: ${budget.activeAgents} / ${budget.maxConcurrentAgents}`;
   el('#agent-budget').dataset.exceeded = String(budget.exceeded);
@@ -109,14 +109,19 @@ export function renderAgents(state) {
   el('#usage-total').textContent = `Tokens: ${number(usage.total)}`;
   el('#usage-detail').textContent = `${usageText(usage)} · Cobertura ${usage.knownAgents}/${usage.observedAgents} agentes (total parcial quando incompleto)`;
   el('#agent-count').textContent = `${current.agents.length} observado(s)`;
+  const stations = [];
   for (const card of document.querySelectorAll('.role-card')) {
     const role = card.dataset.role;
     const matching = current.agents.filter((a) => a.role === role).sort((a, b) => Number(active.has(b.state)) - Number(active.has(a.state)) || (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''));
     const agent = matching[0];
     let displayState = agent?.state ?? 'idle';
     let summary = agent ? `${agent.label} · ${agent.task}` : 'Nenhum agente observado';
+    let task = agent?.task && agent.task !== 'N/A' ? agent.task : null;
+    let updatedAt = agent?.updatedAt ?? null;
     if (state.mode === 'SINGLE_AGENT') {
       const observed = state.roles[role];
+      task = observed?.updatedAt ? observed.summary : null;
+      updatedAt = observed?.updatedAt ?? null;
       const fresh = observed?.updatedAt && Date.now() - Date.parse(observed.updatedAt) <= 45_000;
       if (observed?.state === 'ACTIVE' && fresh) displayState = { EXPLORER: 'exploring', WORKER: 'working', REVIEWER: 'reviewing', QA: 'testing', LEAD: 'working' }[role];
       else if (observed?.state === 'ERROR') displayState = 'failed';
@@ -132,10 +137,12 @@ export function renderAgents(state) {
     card.title = `${labels[role]}: ${summary}`;
     card.setAttribute('aria-label', `Detalhes ${labels[role]}`);
     card.onclick = () => showDetail(agent?.id ?? (state.mode === 'SINGLE_AGENT' ? current.selectedAgentId : null), role);
+    stations.push({ role, displayState, task, updatedAt });
   }
   renderTree();
   renderCommunications();
   if (el('#agent-dialog').open) renderDetail();
+  return stations;
 }
 
 for (const card of document.querySelectorAll('.role-card')) {

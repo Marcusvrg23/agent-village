@@ -7,12 +7,27 @@
     <title>Codex Ops Room</title>
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="/agents.css">
+    <link rel="stylesheet" href="/life.css">
   </head>
   <body>
     <main class="room-shell" aria-label="Codex Ops Room live monitor">
       <section class="room-stage" aria-label="Operations room">
         <img class="room-art" src="/quality-ops-room-reference.webp" alt="Codex Ops Room com estações Explorer, Worker, Reviewer, QA e Lead">
         <div class="vignette" aria-hidden="true"></div>
+        <div class="life-layer" aria-hidden="true">
+          <div class="actor explorer" data-role="EXPLORER" data-visual="idle" data-presence="standby"><i class="screen"></i><i class="sprite body"></i><i class="sprite head"></i><i class="cue"></i></div>
+          <div class="actor lead" data-role="LEAD" data-visual="idle" data-presence="standby"><i class="screen"></i><i class="sprite body"></i><i class="sprite head"></i><i class="cue"></i></div>
+          <div class="actor worker" data-role="WORKER" data-visual="idle" data-presence="standby"><i class="screen"></i><i class="sprite body"></i><i class="sprite head"></i><i class="cue"></i></div>
+          <div class="actor reviewer" data-role="REVIEWER" data-visual="idle" data-presence="standby"><i class="screen"></i><i class="sprite body"></i><i class="sprite head"></i><i class="cue"></i></div>
+          <div class="actor qa" data-role="QA" data-visual="idle" data-presence="standby"><i class="screen"></i><i class="sprite body"></i><i class="sprite head"></i><i class="cue"></i></div>
+        </div>
+        <div class="bubble-layer" aria-hidden="true">
+          <div class="life-bubble explorer" data-role="EXPLORER" data-show="false"><span></span></div>
+          <div class="life-bubble lead" data-role="LEAD" data-show="false"><span></span></div>
+          <div class="life-bubble worker" data-role="WORKER" data-show="false"><span></span></div>
+          <div class="life-bubble reviewer" data-role="REVIEWER" data-show="false"><span></span></div>
+          <div class="life-bubble qa" data-role="QA" data-show="false"><span></span></div>
+        </div>
         <svg id="agent-wires" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
 
         <header class="hud" aria-label="Session status">
@@ -24,6 +39,7 @@
           <div class="hud-grid">
             <div><span>PROJECT</span><strong id="project">Unknown</strong></div>
             <div><span>SESSION</span><strong id="session-status">IDLE</strong></div>
+            <div class="wide life-row"><span>ROOM</span><strong><b id="life-mode" data-mode="IDLE">LIVE IDLE</b><small id="last-activity">Last activity: —</small></strong></div>
             <div class="wide"><span>MODE</span><strong id="mode">SINGLE AGENT / ACTIVITY VIEW</strong></div>
             <div class="wide"><span>SOURCE</span><strong id="source">Waiting for rollout</strong></div>
           </div>

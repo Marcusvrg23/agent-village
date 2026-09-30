@@ -1,4 +1,5 @@
 import { renderAgents } from './agents.js';
+import { updateLife } from './life-view.js';
 
 const elements = {
   project: document.querySelector('#project'),
@@ -112,7 +113,7 @@ function render(state) {
   for (const [role, data] of Object.entries(state.roles ?? {})) renderRole(role, data);
   renderActivity(state.activity);
   renderDebug(state);
-  renderAgents(state);
+  updateLife(state, renderAgents(state));
 }
 
 function setConnection(online) {

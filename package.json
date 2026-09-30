@@ -7,6 +7,7 @@
   "main": "electron/main.cjs",
   "scripts": {
     "start": "node server.js",
+    "ops-room": "node scripts/ops-room.mjs",
     "test": "node --test",
     "inspect:rollout": "node scripts/inspect-rollout.mjs",
     "desktop": "electron .",

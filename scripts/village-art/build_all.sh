@@ -19,3 +19,4 @@ json.dump({'cell': base['cell'], 'anchor': base['anchor'], 'frames': base['frame
 import os
 for r in roles: os.remove(f'{d}/{r.lower()}.json')
 PY
+python3 scripts/village-art/build_fx.py $OUT/map.png public/village/fx.json $OUT/sky-mask.png

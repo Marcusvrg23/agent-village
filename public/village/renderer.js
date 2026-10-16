@@ -68,7 +68,7 @@ export class Renderer {
     this.canvas.height = Math.round(cssH * dpr);
   }
 
-  draw(camera, agents, { selected = null, hovered = null, hoveredBuilding = null, buildings = {} } = {}) {
+  draw(camera, agents, { selected = null, hovered = null, hoveredBuilding = null, buildings = {}, fx = null, ambient = null, weather = null, now = 0 } = {}) {
     const { ctx, dpr } = this;
     const [cw, ch] = this.manifest.cell;
     const [ax, ay] = this.manifest.anchor;
@@ -78,7 +78,10 @@ export class Renderer {
     const k = camera.scale * dpr;
     ctx.setTransform(k, 0, 0, k, -camera.x * k, -camera.y * k);
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(this.map, 0, 0);
+    if (fx && ambient && weather) fx.drawBackground(ctx, ambient, weather);
+    else ctx.drawImage(this.map, 0, 0);
+    const view = { x0: camera.x, y0: camera.y, x1: camera.x + this.viewW / camera.scale, y1: camera.y + this.viewH / camera.scale };
+    if (fx && ambient) fx.drawGround(ctx, now, ambient, view);
 
     if (hoveredBuilding && buildings[hoveredBuilding]) {
       const [x, y, w, h] = buildings[hoveredBuilding].rect;
@@ -97,7 +100,7 @@ export class Renderer {
 
     for (const d of drawables) {
       if (d.kind === 'occluder') {
-        ctx.drawImage(d.o.img, d.o.at[0], d.o.at[1]);
+        ctx.drawImage(fx && ambient && weather ? fx.occluderFor(d.o, ambient, weather) : d.o.img, d.o.at[0], d.o.at[1]);
         continue;
       }
       const a = d.a;
@@ -122,18 +125,36 @@ export class Renderer {
         ctx.ellipse(px, py - 1, 15, 6, 0, 0, Math.PI * 2);
         ctx.stroke();
       }
-      const atlas = this.atlases[a.role];
+      const base = this.atlases[a.role];
       const fi = this.frameIndex.get(a.frame) ?? 0;
       const top = py - ay + a.bob;
-      if (a.flip) {
-        ctx.save();
-        ctx.translate(px, 0);
-        ctx.scale(-1, 1);
-        ctx.drawImage(atlas, fi * cw, 0, cw, ch, -ax, top, cw, ch);
-        ctx.restore();
-      } else {
-        ctx.drawImage(atlas, fi * cw, 0, cw, ch, px - ax, top, cw, ch);
+      // Same sprites and frames as M1; at night the atlas is pre-tinted and nearby lamps add local light.
+      const tinted = fx && ambient ? fx.atlasFor(a.role, base, ambient) : base;
+      const lamp = fx && ambient && tinted !== base ? fx.localLight(a.x, a.y - 20, ambient) : 0;
+      const blit = (img) => {
+        if (a.flip) {
+          ctx.save();
+          ctx.translate(px, 0);
+          ctx.scale(-1, 1);
+          ctx.drawImage(img, fi * cw, 0, cw, ch, -ax, top, cw, ch);
+          ctx.restore();
+        } else {
+          ctx.drawImage(img, fi * cw, 0, cw, ch, px - ax, top, cw, ch);
+        }
+      };
+      blit(tinted);
+      if (lamp > 0.04) {
+        ctx.globalAlpha = Math.min(0.9, lamp);
+        blit(base);
+        ctx.globalAlpha = 1;
       }
+    }
+
+    // Scene lighting and weather over the world (avatars included), under the UI.
+    if (fx && ambient && weather) {
+      fx.drawShadows(ctx, weather);
+      fx.drawGlows(ctx, now, ambient, view);
+      fx.drawAir(ctx, now, weather, view);
     }
 
     // Screen-space UI: name tags and bubbles stay crisp at any zoom.

@@ -2,6 +2,22 @@
 // Local only: same-origin fetches of static files; no model or external network calls.
 import { Village, ROLE_LABELS } from './life-engine.js';
 import { Camera, Renderer, hitAgent, hitBuilding } from './renderer.js';
+import { WEATHERS, WEATHER_LABELS, ambientAt, effectiveHour, parseHourParam, weatherAt, weatherTint } from './ambience.js';
+import { SceneFx } from './effects.js';
+
+const TIME_MODES = ['auto', 'dia', 'noite'];
+const TIME_ICONS = { auto: '⟳', dia: '☀', noite: '☾' };
+const TIME_TITLES = { auto: 'Ciclo do dia: pela hora local', dia: 'Ciclo do dia: sempre dia', noite: 'Ciclo do dia: sempre noite' };
+const WEATHER_MODES = ['auto', ...WEATHERS];
+const WEATHER_ICONS = { auto: '⛅', limpo: '☼', nublado: '☁', chuva: '☂', neblina: '≋' };
+const PHASE_LABELS = { madrugada: 'madrugada', amanhecer: 'amanhecer', dia: 'dia', entardecer: 'entardecer', noite: 'noite' };
+
+// Smoothly approach the target ambience (mode switches fade instead of jumping).
+function approach(cur, target, k) {
+  if (!cur || k >= 1) return target;
+  const lerp = (a, b) => a + (b - a) * k;
+  return { ...target, night: lerp(cur.night, target.night), warm: lerp(cur.warm, target.warm), tint: cur.tint.map((c, i) => Math.round(lerp(c, target.tint[i]))) };
+}
 
 const ACTIVITY_LABELS = {
   IDLE: 'Parado', WALK: 'Passeando', LOOK_AROUND: 'Observando a vila', TYPE: 'Mexendo no laptop',
@@ -24,19 +40,44 @@ function loadImage(src) {
 }
 
 async function boot() {
-  const [world, manifest] = await Promise.all([
+  const [world, manifest, fxData] = await Promise.all([
     fetch('world.json').then((r) => r.json()),
     fetch('assets/sprites/manifest.json').then((r) => r.json()),
+    fetch('fx.json').then((r) => r.json()),
   ]);
   const map = await loadImage('assets/map.png');
   const atlases = Object.fromEntries(await Promise.all(Object.entries(manifest.roles).map(async ([role, src]) => [role, await loadImage(src)])));
   const occluders = await Promise.all(world.occluders.map(async (o) => ({ ...o, img: await loadImage(o.image) })));
+  const skyMask = await loadImage('assets/sky-mask.png');
 
   const reduceQuery = matchMedia('(prefers-reduced-motion: reduce)');
   let village = new Village(world, { seed: Number(params.get('seed')) || 20261016, reducedMotion: reduceQuery.matches });
   const camera = new Camera(world.size[0], world.size[1]);
   const renderer = new Renderer(canvas, { map, atlases, manifest, occluders });
   const ui = { selected: null, selectedBuilding: null, hovered: null, hoveredBuilding: null };
+  // ---- ambience: time of day + decorative local weather ----
+  const hourOverride = parseHourParam(location.search);
+  let quality = params.get('qualidade') === 'baixa' ? 'baixa' : 'alta';
+  const effectsOff = params.get('efeitos') === 'off';
+  let fx = new SceneFx(world, fxData, { quality, reducedMotion: reduceQuery.matches, map, skyMask });
+  const forcedWeather = params.get('clima');
+  const env = {
+    timeMode: 'auto',
+    weatherMode: WEATHERS.includes(forcedWeather) ? forcedWeather : 'auto',
+    amb: null,
+    weather: { kind: 'limpo', intensity: 1 },
+  };
+  const timeBtn = $('time');
+  const weatherBtn = $('weather');
+  function paintEnvButtons() {
+    timeBtn.textContent = hourOverride !== null ? '⏲' : TIME_ICONS[env.timeMode];
+    timeBtn.title = hourOverride !== null ? 'Hora fixada pela URL (?hora=)' : TIME_TITLES[env.timeMode];
+    weatherBtn.textContent = WEATHER_ICONS[env.weatherMode];
+    weatherBtn.title = env.weatherMode === 'auto' ? 'Clima: automático (simulação local)' : `Clima: ${WEATHER_LABELS[env.weatherMode]} (fixo)`;
+  }
+  timeBtn.addEventListener('click', () => { env.timeMode = TIME_MODES[(TIME_MODES.indexOf(env.timeMode) + 1) % TIME_MODES.length]; paintEnvButtons(); });
+  weatherBtn.addEventListener('click', () => { env.weatherMode = WEATHER_MODES[(WEATHER_MODES.indexOf(env.weatherMode) + 1) % WEATHER_MODES.length]; paintEnvButtons(); });
+  paintEnvButtons();
 
   function resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -103,6 +144,7 @@ async function boot() {
   const setReduced = (on) => {
     motionBtn.setAttribute('aria-pressed', String(on));
     village = new Village(world, { seed: 20261016, reducedMotion: on });
+    fx.setReducedMotion(on);
   };
   motionBtn.addEventListener('click', () => setReduced(motionBtn.getAttribute('aria-pressed') !== 'true'));
   if (reduceQuery.matches) motionBtn.setAttribute('aria-pressed', 'true');
@@ -161,15 +203,38 @@ async function boot() {
     requestAnimationFrame(frame);
     if (now - lastFrame < FRAME_MS - 1) return;
     lastFrame = now;
+    const dt = Math.min(250, now - last);
     village.step(now - last);
     last = now;
+    // ambience (cheap pure math every frame; the light map itself is cached by key)
+    const hour = effectiveHour(env.timeMode, hourOverride, new Date());
+    env.weather = weatherAt(Date.now(), { forced: env.weatherMode === 'auto' ? null : env.weatherMode });
+    env.amb = approach(env.amb, weatherTint(ambientAt(hour), env.weather), (dt / 1200) * 3);
+    if (panelTick % 30 === 0) village.setEnvironment({ night: env.amb.night, rain: env.weather.kind === 'chuva' ? env.weather.intensity : 0 });
+    const view = { x0: camera.x, y0: camera.y, x1: camera.x + renderer.viewW / camera.scale, y1: camera.y + renderer.viewH / camera.scale };
     const t0 = performance.now();
-    renderer.draw(camera, village.snapshot(), { selected: ui.selected, hovered: ui.hovered, hoveredBuilding: ui.hoveredBuilding, buildings: world.buildings });
+    if (!effectsOff) fx.update(dt, now, env.amb, env.weather, view);
+    renderer.draw(camera, village.snapshot(), {
+      selected: ui.selected, hovered: ui.hovered, hoveredBuilding: ui.hoveredBuilding, buildings: world.buildings,
+      fx: effectsOff ? null : fx, ambient: env.amb, weather: env.weather, now,
+    });
     stats.renderMs += performance.now() - t0;
     stats.frames += 1;
     if (now - stats.since >= 1000) {
       stats.fps = Math.round((stats.frames * 1000) / (now - stats.since));
-      if (debug) perf.textContent = `${stats.fps} fps · render ${(stats.renderMs / stats.frames).toFixed(2)} ms/quadro`;
+      stats.avgMs = stats.renderMs / stats.frames;
+      // Auto-degrade on slow machines: three seconds in a row under 24 fps (tab visible) switch the effects
+      // to low quality (fewer particles and water glints). The village itself and its animations are unchanged.
+      stats.slow = stats.fps < 24 && document.visibilityState === 'visible' ? (stats.slow ?? 0) + 1 : 0;
+      if (stats.slow >= 3 && quality === 'alta') {
+        quality = 'baixa';
+        fx = new SceneFx(world, fxData, { quality, reducedMotion: motionBtn.getAttribute('aria-pressed') === 'true', map, skyMask });
+      }
+      const totalMin = Math.round(env.amb.hour * 60) % 1440;
+      const hh = String(Math.floor(totalMin / 60)).padStart(2, '0');
+      const mm = String(totalMin % 60).padStart(2, '0');
+      $('mode').textContent = `IDLE · ${hh}:${mm} ${PHASE_LABELS[env.amb.phase]} · ${WEATHER_LABELS[env.weather.kind]}`;
+      if (debug) perf.textContent = `${stats.fps} fps · render ${stats.avgMs.toFixed(2)} ms/quadro · efeitos ${quality} · partículas ${fx.particles.n}`;
       stats.frames = 0; stats.renderMs = 0; stats.since = now;
     }
     if (++panelTick % 10 === 0 && ui.selected) renderPanel();
@@ -177,7 +242,7 @@ async function boot() {
   document.addEventListener('visibilitychange', () => { last = performance.now(); });
   $('loading').hidden = true;
   requestAnimationFrame(frame);
-  if (debug) window.__village = { get village() { return village; }, camera, stats, world };
+  if (debug) window.__village = { get village() { return village; }, get fx() { return fx; }, camera, stats, world, env };
 }
 
 boot().catch((error) => {

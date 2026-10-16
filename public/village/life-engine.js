@@ -82,6 +82,13 @@ export class Village {
       return agent;
     });
     this.byRole = new Map(this.agents.map((a) => [a.role, a]));
+    this.env = { night: 0, rain: 0 };
+  }
+
+  /** Local ambience only (time of day, decorative weather): changes idle preferences, never facts. */
+  setEnvironment({ night = 0, rain = 0 } = {}) {
+    const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
+    this.env = { night: clamp01(night), rain: clamp01(rain) };
   }
 
   agent(role) { return this.byRole.get(role); }
@@ -245,13 +252,16 @@ export class Village {
     if (a.task) return [{ type: 'act', action: 'WORK', ms: Infinity }];
     if (this.reducedMotion) return [{ type: 'act', action: home, ms: between(r, 9_000, 15_000) }];
     const away = a.node !== a.homeNode;
+    // Ambience (local, decorative): at night and in the rain avatars stay home and rest more.
+    const { night, rain } = this.env;
+    const outdoors = (1 - 0.6 * night) * (1 - 0.7 * rain);
     const options = [
-      ['home', 1 + p.focus * 2 + (away ? 2.5 : 0)],
-      ['stroll', p.curiosity * 1.3],
-      ['visit', p.curiosity * 0.8],
-      ['social', p.social * 1.5],
-      ['rest', 0.35],
-      ['celebrate', 0.12],
+      ['home', 1 + p.focus * 2 + (away ? 2.5 : 0) + night * 1.5 + rain * 2.5],
+      ['stroll', p.curiosity * 1.3 * outdoors],
+      ['visit', p.curiosity * 0.8 * outdoors],
+      ['social', p.social * 1.5 * (1 - 0.5 * rain)],
+      ['rest', 0.35 + night * 1.2],
+      ['celebrate', 0.12 * (1 - rain)],
     ].filter(([kind]) => !(kind === 'home' && !away && a.activity === home));
     const total = options.reduce((sum, [, w]) => sum + w, 0);
     let roll = r() * total;

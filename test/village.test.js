@@ -181,7 +181,7 @@ test('Village frontend has no model, external network or extra stream dependency
     assert.doesNotMatch(src, /https?:\/\//, `${f} references an absolute URL`);
     assert.doesNotMatch(src, /openai|anthropic|api\.|EventSource|WebSocket|XMLHttpRequest/i, `${f} has a network/model dependency`);
     for (const [, spec] of src.matchAll(/import\s[^'"]*['"]([^'"]+)['"]/g)) assert.ok(spec.startsWith('./'), `${f} imports ${spec}`);
-    for (const [, url] of src.matchAll(/fetch\(\s*['"`]([^'"`]+)['"`]/g)) assert.match(url, /^(world\.json|assets\/)/, `${f} fetches ${url}`);
+    for (const [, url] of src.matchAll(/fetch\(\s*['"`]([^'"`]+)['"`]/g)) assert.match(url, /^(world\.json|fx\.json|assets\/)/, `${f} fetches ${url}`);
   }
 });
 

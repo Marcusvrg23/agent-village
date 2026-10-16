@@ -22,6 +22,24 @@ Abra http://127.0.0.1:4173. Outra porta: defina `OPS_ROOM_PORT` apenas no proces
 node --test
 ```
 
+## Agent Village (Release Orchestrator V2 — M1)
+
+Vila isométrica em pixel art com agentes independentes, servida pelo mesmo backend local:
+
+```powershell
+npm run village
+```
+
+Abre http://127.0.0.1:4173/village/ (mesmas regras de porta e de instância única do `npm run ops-room`; o Ops Room original continua em `/`).
+
+- **Mundo:** mapa limpo (`public/village/assets/map.png`), sem personagens pintados no fundo; caminhos, prédios clicáveis e pontos de convivência em `public/village/world.json`. A fonte central é uma camada de primeiro plano, então quem passa atrás dela fica oculto.
+- **Personagens:** 8 papéis (Lead, Explorer, RE Analyst, Spec Architect, Worker, Reviewer, QA, Release Gate), cada um com 16 quadros (andar em 4 direções por espelhamento, ocioso, piscar, olhar para trás, digitar, ler, falar, comemorar). Atlas em `public/village/assets/sprites/`.
+- **Life Engine** (`public/village/life-engine.js`): simulação local, determinística e semeada. Os avatares passeiam pelos caminhos, visitam prédios, conversam em pares, descansam e voltam ao próprio prédio. Não faz chamadas de modelo, não gasta tokens e não gera eventos técnicos. Os balões são frases ambiente locais, em estilo escuro e tracejado.
+- **Verdade visual:** todo avatar começa em **STANDBY**. A ligação com eventos reais do Codex é o M2: o ponto de entrada já existe (`assignTask`/`releaseTask`, que interrompe a rotina, termina o trecho atual sem saltos, leva o avatar ao seu prédio e marca **ACTIVE**), mas no M1 nada o chama.
+- **Interação:** arrastar move a câmera; roda do mouse, botões ou teclas `+`, `-` e `0` controlam o zoom; clicar num personagem ou prédio abre o painel lateral; `Esc` fecha. O botão ⏸ e `prefers-reduced-motion` deixam todos parados.
+- **Desempenho:** 30 fps no máximo, cenário desenhado como uma única imagem e só 8 sprites por quadro; `?debug=1` mostra fps e ms por quadro.
+- **Arte:** gerada com Higgsfield (procedência em `art/village-src/README.md`). Para regerar os assets, rode `sh scripts/village-art/build_all.sh` (requer Python 3 com numpy, pillow, opencv-python e scipy; só o build de arte usa Python, o app não).
+
 ## Observabilidade
 
 - A V0 continua selecionando automaticamente o rollout mais ativo e fazendo tail por offset. Na troca de sessão, a V1 lê uma janela inicial limitada para identificar o agente. Não modifica os rollouts.

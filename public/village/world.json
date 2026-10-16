@@ -1,0 +1,499 @@
+{
+ "size": [
+  1344,
+  752
+ ],
+ "nodes": {
+  "P_N": [
+   645,
+   288
+  ],
+  "P_NW": [
+   560,
+   300
+  ],
+  "P_W": [
+   515,
+   348
+  ],
+  "P_SW": [
+   565,
+   408
+  ],
+  "P_S": [
+   648,
+   418
+  ],
+  "P_SE": [
+   735,
+   408
+  ],
+  "P_E": [
+   780,
+   348
+  ],
+  "P_NE": [
+   735,
+   298
+  ],
+  "HQ_MID": [
+   645,
+   255
+  ],
+  "HQ_SPOT": [
+   645,
+   226
+  ],
+  "OBS_2": [
+   478,
+   290
+  ],
+  "OBS_1": [
+   420,
+   252
+  ],
+  "OBS_SPOT": [
+   356,
+   230
+  ],
+  "TL_2": [
+   440,
+   362
+  ],
+  "TL_1": [
+   350,
+   380
+  ],
+  "TL_SPOT": [
+   268,
+   382
+  ],
+  "VA_3": [
+   535,
+   448
+  ],
+  "VA_2": [
+   482,
+   502
+  ],
+  "VA_1": [
+   420,
+   560
+  ],
+  "VA_SPOT": [
+   335,
+   585
+  ],
+  "GH_0": [
+   500,
+   566
+  ],
+  "GH_1": [
+   560,
+   664
+  ],
+  "GH_SPOT": [
+   640,
+   668
+  ],
+  "SH_1": [
+   790,
+   462
+  ],
+  "SH_2": [
+   850,
+   532
+  ],
+  "SH_SPOT": [
+   928,
+   576
+  ],
+  "FO_1": [
+   800,
+   270
+  ],
+  "FO_SPOT": [
+   856,
+   262
+  ],
+  "FO_2": [
+   960,
+   250
+  ],
+  "WT_SPOT": [
+   1205,
+   292
+  ],
+  "RE_1": [
+   862,
+   376
+  ],
+  "RE_2": [
+   962,
+   406
+  ],
+  "RE_SPOT": [
+   1076,
+   410
+  ],
+  "GH_W": [
+   520,
+   632
+  ],
+  "RE_3": [
+   1170,
+   405
+  ],
+  "WT_2": [
+   1228,
+   372
+  ],
+  "WT_3": [
+   1215,
+   316
+  ]
+ },
+ "edges": [
+  [
+   "P_N",
+   "P_NW"
+  ],
+  [
+   "P_NW",
+   "P_W"
+  ],
+  [
+   "P_W",
+   "P_SW"
+  ],
+  [
+   "P_SW",
+   "P_S"
+  ],
+  [
+   "P_S",
+   "P_SE"
+  ],
+  [
+   "P_SE",
+   "P_E"
+  ],
+  [
+   "P_E",
+   "P_NE"
+  ],
+  [
+   "P_NE",
+   "P_N"
+  ],
+  [
+   "P_N",
+   "HQ_MID"
+  ],
+  [
+   "HQ_MID",
+   "HQ_SPOT"
+  ],
+  [
+   "P_NW",
+   "OBS_2"
+  ],
+  [
+   "OBS_2",
+   "OBS_1"
+  ],
+  [
+   "OBS_1",
+   "OBS_SPOT"
+  ],
+  [
+   "P_W",
+   "TL_2"
+  ],
+  [
+   "TL_2",
+   "TL_1"
+  ],
+  [
+   "TL_1",
+   "TL_SPOT"
+  ],
+  [
+   "P_SW",
+   "VA_3"
+  ],
+  [
+   "VA_3",
+   "VA_2"
+  ],
+  [
+   "VA_2",
+   "VA_1"
+  ],
+  [
+   "VA_1",
+   "VA_SPOT"
+  ],
+  [
+   "VA_1",
+   "GH_0"
+  ],
+  [
+   "GH_1",
+   "GH_SPOT"
+  ],
+  [
+   "P_SE",
+   "SH_1"
+  ],
+  [
+   "SH_1",
+   "SH_2"
+  ],
+  [
+   "SH_2",
+   "SH_SPOT"
+  ],
+  [
+   "P_NE",
+   "FO_1"
+  ],
+  [
+   "FO_1",
+   "FO_SPOT"
+  ],
+  [
+   "FO_SPOT",
+   "FO_2"
+  ],
+  [
+   "P_E",
+   "RE_1"
+  ],
+  [
+   "RE_1",
+   "RE_2"
+  ],
+  [
+   "RE_2",
+   "RE_SPOT"
+  ],
+  [
+   "GH_0",
+   "GH_W"
+  ],
+  [
+   "GH_W",
+   "GH_1"
+  ],
+  [
+   "RE_SPOT",
+   "RE_3"
+  ],
+  [
+   "RE_3",
+   "WT_2"
+  ],
+  [
+   "WT_2",
+   "WT_3"
+  ],
+  [
+   "WT_3",
+   "WT_SPOT"
+  ]
+ ],
+ "buildings": {
+  "LEAD_HQ": {
+   "label": "Lead HQ",
+   "role": "LEAD",
+   "spot": "HQ_SPOT",
+   "rect": [
+    540,
+    60,
+    215,
+    160
+   ],
+   "about": "Coordena\u00e7\u00e3o: classifica a miss\u00e3o, escolhe a profundidade da spec e controla o or\u00e7amento."
+  },
+  "OBSERVATORY": {
+   "label": "Observatory",
+   "role": "EXPLORER",
+   "spot": "OBS_SPOT",
+   "rect": [
+    262,
+    30,
+    148,
+    190
+   ],
+   "about": "Explora\u00e7\u00e3o: mapeia o reposit\u00f3rio e responde perguntas delimitadas."
+  },
+  "RE_LAB": {
+   "label": "RE Lab",
+   "role": "RE_ANALYST",
+   "spot": "RE_SPOT",
+   "rect": [
+    965,
+    232,
+    220,
+    170
+   ],
+   "about": "Engenharia reversa autorizada (REA) e Evidence Capsules."
+  },
+  "SPEC_HALL": {
+   "label": "Spec Hall",
+   "role": "SPEC_ARCHITECT",
+   "spot": "SH_SPOT",
+   "rect": [
+    840,
+    405,
+    262,
+    165
+   ],
+   "about": "Specs adaptativas S0\u2013S4 e crit\u00e9rios de aceite."
+  },
+  "FORGE": {
+   "label": "Forge",
+   "role": "WORKER",
+   "spot": "FO_SPOT",
+   "rect": [
+    805,
+    55,
+    212,
+    175
+   ],
+   "about": "Implementa\u00e7\u00e3o a partir da spec aceita."
+  },
+  "WATCHTOWER": {
+   "label": "Watchtower",
+   "role": "REVIEWER",
+   "spot": "WT_SPOT",
+   "rect": [
+    1112,
+    40,
+    125,
+    240
+   ],
+   "about": "Revis\u00e3o de diff, riscos e ader\u00eancia \u00e0 spec."
+  },
+  "TEST_LAB": {
+   "label": "Test Lab",
+   "role": "QA",
+   "spot": "TL_SPOT",
+   "rect": [
+    85,
+    228,
+    230,
+    165
+   ],
+   "about": "Testes derivados dos crit\u00e9rios de aceite e benchmarks."
+  },
+  "CONTEXT_VAULT": {
+   "label": "Context Vault",
+   "role": null,
+   "spot": "VA_SPOT",
+   "rect": [
+    205,
+    405,
+    240,
+    175
+   ],
+   "about": "Mem\u00f3ria local: specs, evid\u00eancias e c\u00e1psulas m\u00ednimas por papel."
+  },
+  "GATEHOUSE": {
+   "label": "Gatehouse",
+   "role": "RELEASE_GATE",
+   "spot": "GH_SPOT",
+   "rect": [
+    525,
+    490,
+    240,
+    165
+   ],
+   "about": "Release Gate: s\u00f3 libera com evid\u00eancia real."
+  }
+ },
+ "social": [
+  [
+   "P_S",
+   "P_SE"
+  ],
+  [
+   "P_W",
+   "P_SW"
+  ],
+  [
+   "P_NE",
+   "P_E"
+  ],
+  [
+   "SH_2",
+   "SH_SPOT"
+  ]
+ ],
+ "occluders": [
+  {
+   "id": "fountain",
+   "baseline": 396,
+   "poly": [
+    [
+     566,
+     350
+    ],
+    [
+     590,
+     327
+    ],
+    [
+     625,
+     318
+    ],
+    [
+     628,
+     262
+    ],
+    [
+     645,
+     248
+    ],
+    [
+     662,
+     262
+    ],
+    [
+     668,
+     318
+    ],
+    [
+     703,
+     327
+    ],
+    [
+     728,
+     350
+    ],
+    [
+     728,
+     378
+    ],
+    [
+     700,
+     394
+    ],
+    [
+     600,
+     396
+    ],
+    [
+     566,
+     378
+    ]
+   ],
+   "image": "assets/occluder-fountain.png",
+   "at": [
+    566,
+    248
+   ]
+  }
+ ]
+}

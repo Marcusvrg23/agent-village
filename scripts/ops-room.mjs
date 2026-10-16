@@ -1,10 +1,12 @@
 // One-command local start: backend + rollout watcher + web UI (all in server.js), then opens the browser.
 // Pass --no-open (or set OPS_ROOM_NO_OPEN=1) to skip the browser. Still bound to 127.0.0.1 only.
+// Pass --village (npm run village) to open the Agent Village page served by the same backend.
 import { spawn } from 'node:child_process';
 import net from 'node:net';
 
 const port = Number.parseInt(process.env.OPS_ROOM_PORT ?? '4173', 10);
 const url = `http://127.0.0.1:${port}/`;
+const page = process.argv.includes('--village') ? `${url}village/` : url;
 const open = !process.argv.includes('--no-open') && process.env.OPS_ROOM_NO_OPEN !== '1';
 
 if (!Number.isInteger(port) || port < 1 || port > 65_535) {
@@ -31,15 +33,15 @@ function portFree() {
 
 function openBrowser() {
   if (!open) return;
-  const [command, args] = process.platform === 'win32' ? ['cmd', ['/c', 'start', '', url]]
-    : process.platform === 'darwin' ? ['open', [url]] : ['xdg-open', [url]];
+  const [command, args] = process.platform === 'win32' ? ['cmd', ['/c', 'start', '', page]]
+    : process.platform === 'darwin' ? ['open', [page]] : ['xdg-open', [page]];
   spawn(command, args, { detached: true, stdio: 'ignore', windowsHide: true }).on('error', () => {}).unref();
-  console.log(`[ops-room] opened ${url}`);
+  console.log(`[ops-room] opened ${page}`);
 }
 
 // A failed bind would leave server.js alive as a headless duplicate watcher, so check first.
 if (await isOpsRoom()) {
-  console.log(`[ops-room] already running at ${url}`);
+  console.log(`[ops-room] already running at ${page}`);
   openBrowser();
   process.exit(0);
 }

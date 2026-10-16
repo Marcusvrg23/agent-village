@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>Agent Village — Release Orchestrator V2</title>
+    <link rel="icon" href="favicon.png">
+    <link rel="stylesheet" href="village.css">
+  </head>
+  <body>
+    <main class="shell">
+      <canvas id="world" aria-label="Agent Village: vila com agentes independentes" tabindex="0"></canvas>
+
+      <header class="hud top-left">
+        <h1>Agent Village</h1>
+        <div class="badges">
+          <span class="badge mode" id="mode">IDLE · vida local</span>
+          <span class="badge runtime" id="runtime" title="A ligação com eventos reais do Codex entra no M2.">Runtime: não conectado</span>
+        </div>
+      </header>
+
+      <nav class="hud top-right" aria-label="Controles da câmera">
+        <button type="button" id="zoom-out" aria-label="Diminuir zoom">−</button>
+        <button type="button" id="zoom-in" aria-label="Aumentar zoom">+</button>
+        <button type="button" id="zoom-fit" aria-label="Enquadrar a vila">⤢</button>
+        <button type="button" id="motion" aria-pressed="false" title="Movimento reduzido">⏸</button>
+        <a class="link" href="/" title="Abrir o Ops Room original">Ops Room</a>
+      </nav>
+
+      <aside class="panel" id="panel" hidden aria-live="polite">
+        <button type="button" class="close" id="panel-close" aria-label="Fechar">×</button>
+        <p class="kicker" id="panel-kicker"></p>
+        <h2 id="panel-title"></h2>
+        <dl id="panel-body"></dl>
+        <p class="note" id="panel-note"></p>
+      </aside>
+
+      <footer class="hud bottom-left">
+        <span><i class="dot standby"></i>STANDBY = avatar local, nenhum agente real atribuído</span>
+        <span>Vida ociosa determinística · 0 chamadas de IA · 0 tokens</span>
+        <span id="perf" hidden></span>
+      </footer>
+
+      <div class="loading" id="loading">Carregando a vila…</div>
+    </main>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

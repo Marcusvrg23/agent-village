@@ -220,7 +220,8 @@ const watcher = new SessionWatcher({
 });
 
 async function serveStatic(requestPath, response) {
-  const normalizedPath = requestPath === '/' ? '/index.html' : requestPath;
+  // Directory URLs serve their index.html (/ -> Ops Room, /village/ -> Agent Village).
+  const normalizedPath = requestPath.endsWith('/') ? `${requestPath}index.html` : requestPath;
   let decoded;
   try {
     decoded = decodeURIComponent(normalizedPath);
@@ -281,6 +282,10 @@ const server = http.createServer(async (request, response) => {
       clients.delete(response);
       monitor.state.debug.connectedClients = clients.size;
     });
+    return;
+  }
+  if (requestUrl.pathname === '/village') {
+    response.writeHead(301, { Location: '/village/' }).end();
     return;
   }
   await serveStatic(requestUrl.pathname, response);

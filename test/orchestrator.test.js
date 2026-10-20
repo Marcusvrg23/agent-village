@@ -405,6 +405,31 @@ test('Real agent team: separate verified sessions, persisted handoffs, resume an
   }
 });
 
+test('Real team: only WORKER can edit after explicit approval; LEAD and first turns remain read-only', async () => {
+  const s = sandbox();
+  const o = new Orchestrator({ env: s.env, dataDir: path.join(s.home, '.av'), control: true });
+  const mission = await o.draft({
+    prompt: 'Implemente uma nova tela de relatórios e rode os testes',
+    cwd: s.proj, runtime: 'codex', mode: 'edit', team: true,
+  });
+  await assert.rejects(o.approve(mission.id), /confirmação explícita/);
+  assert.equal(s.calls().filter(c => c.args[0] === 'exec').length, 0);
+  await o.approve(mission.id, { confirmEdit: true });
+  await waitFor(() => {
+    const m = o.missions.get(mission.id);
+    return m?.status === 'completed' && !o.running.has(mission.id) ? m : null;
+  }, 25_000);
+  const runs = s.calls().filter(c => c.args[0] === 'exec');
+  assert.equal(runs.length, 4);
+  const editors = runs.filter(c => c.args.includes('workspace-write'));
+  assert.equal(editors.length, 1, 'no concurrent writes and one approved editor');
+  assert.match(editors[0].stdin, /Papel da sua sessão: WORKER/);
+  assert.match(editors[0].stdin, /Mensagem REAL recebida de LEAD/);
+  assert.ok(runs.filter(c => c.args.includes('read-only')).length === 3);
+  assert.ok(runs.every(c => /Não execute commit, push, merge, deploy/.test(c.stdin)));
+  assert.ok(runs.some(c => /Mensagem REAL recebida de WORKER/.test(c.stdin)), 'LEAD receives the real deliverable');
+});
+
 test('Real team: failures block gate and never fabricate a review or final answer', async () => {
   const s = sandbox({ FAKE_RUN: 'fail' });
   const o = new Orchestrator({ env: s.env, dataDir: path.join(s.home, '.av'), control: true });

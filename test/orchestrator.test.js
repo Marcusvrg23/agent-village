@@ -365,7 +365,7 @@ test('Real agent team: separate verified sessions, persisted handoffs, resume an
     const o = new Orchestrator({ env: s.env, dataDir: dir, control: true });
     const events = [];
     o.on('village', e => events.push(e));
-    const m = await o.draft({ prompt: 'Corrija bug no login e rode os testes', cwd: s.proj, runtime, team: true });
+    const m = await o.draft({ prompt: 'Implemente uma nova tela de relatórios e rode os testes', cwd: s.proj, runtime, team: true });
     assert.equal(m.team, true);
     assert.equal(m.preflight.canRun, true);
     await o.approve(m.id);

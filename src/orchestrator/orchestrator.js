@@ -38,7 +38,7 @@ export function checkProjectDir(cwd, roots) {
 }
 
 export class Orchestrator extends EventEmitter {
-  constructor({ env = process.env, dataDir = villageDataDir(env), adapters = null, control = env.VILLAGE_CONTROL === '1', now = () => Date.now() } = {}) {
+  constructor({ env = process.env, dataDir = villageDataDir(env), adapters = null, control = String(env.VILLAGE_CONTROL ?? '').trim() === '1', now = () => Date.now() } = {}) {
     super();
     this.env = env;
     this.now = now;

@@ -325,6 +325,7 @@ test('Portability: Docker and CI files exist; the server image never enables exe
   const ci = readFileSync(path.join(root, '.github/workflows/test.yml'), 'utf8');
   for (const os of ['ubuntu-latest', 'macos-latest', 'windows-latest']) assert.ok(ci.includes(os));
   const server = readFileSync(path.join(root, 'server.js'), 'utf8');
-  assert.match(server, /VILLAGE_CONTROL === '1' && !IN_DOCKER/);
+  assert.match(server, /flag\('VILLAGE_CONTROL'\) && !IN_DOCKER/);
+  assert.match(server, /\.trim\(\) === '1'/, 'cmd.exe `set X=1 && ...` keeps a trailing space');
   assert.ok(unix || !unix);
 });

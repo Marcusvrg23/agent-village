@@ -53,9 +53,11 @@ export function route({ mission, probes = {}, quotas = {}, running = [], history
     decision.reasons.push('Esta missão já está em execução: execução duplicada negada.');
     return decision;
   }
-  if (running.length >= POLICY.maxParallelAgents) {
+  const slotsUsed = running.reduce((count, item) => count + (item.slots ?? 1), 0);
+  const requestedSlots = mission.team ? 2 : 1;
+  if (slotsUsed + requestedSlots > POLICY.maxParallelAgents) {
     decision.status = 'queued';
-    decision.reasons.push(`Limite de ${POLICY.maxParallelAgents} agentes simultâneos atingido (total, não por provedor).`);
+    decision.reasons.push(`Limite de ${POLICY.maxParallelAgents} sessões simultâneas atingido (solicitadas ${requestedSlots}; em uso ${slotsUsed}).`);
     return decision;
   }
   // Manual choice: a runtime type (any of its accounts) or one specific account ("codex@trabalho").

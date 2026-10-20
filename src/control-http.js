@@ -182,6 +182,8 @@ export function createControlPlane(orchestrator, { token = randomBytes(24).toStr
         res.end(output);
         return true;
       }
+      const teamMatch = /^\/api\/village\/missions\/(M-[0-9]{8}-[0-9]{6}-[a-z0-9]{4})\/team$/.exec(url.pathname);
+      if (req.method === 'GET' && teamMatch) { send(res, 200, orchestrator.missionTeam(teamMatch[1])); return true; }
       if (req.method === 'GET' && url.pathname === '/events/village') { openStream(req, res, false); return true; }
       if (req.method === 'GET' && url.pathname === '/api/village/lan') {
         send(res, 200, lan ? { enabled: true, urls: lanAddresses(typeof lanPort === 'function' ? lanPort() : lanPort), ...lan.current(), devices: lan.devices() } : { enabled: false });

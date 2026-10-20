@@ -165,11 +165,25 @@ test('Status line tap: stores only the quota windows; setup plans install/uninst
   assert.equal(readClaudeStatusline(dir).windows.fiveHour.usedPercent, 23.5);
   const before = { theme: 'dark', statusLine: { type: 'command', command: 'bash ~/.claude/sl.sh' } };
   const inst = planStatusline(before, 'install', '/usr/bin/node', '/opt/av/scripts/claude-statusline-tap.mjs');
-  assert.match(inst.after.statusLine.command, /claude-statusline-tap\.mjs -- bash ~\/\.claude\/sl\.sh$/);
+  assert.match(inst.after.statusLine.command, /claude-statusline-tap\.mjs" -- bash ~\/\.claude\/sl\.sh$/);
   assert.equal(inst.after.theme, 'dark');
   const un = planStatusline(inst.after, 'uninstall');
   assert.equal(un.after.statusLine.command, 'bash ~/.claude/sl.sh');
-  assert.equal(planStatusline(inst.after, 'install').changed, false);
+  assert.equal(planStatusline(inst.after, 'install', '/usr/bin/node', '/opt/av/scripts/claude-statusline-tap.mjs').changed, false);
+});
+
+test('statusline tap: Windows paths survive the Git Bash shell; reinstall repairs an old unquoted command', () => {
+  const node = 'C:\\Program Files\\nodejs\\node.exe';
+  const tap = 'C:\\Users\\Dell\\agent-village\\scripts\\claude-statusline-tap.mjs';
+  const good = '"C:/Program Files/nodejs/node.exe" "C:/Users/Dell/agent-village/scripts/claude-statusline-tap.mjs"';
+  // Claude Code runs the status line through Git Bash on Windows: an unquoted C:\Users\... loses its backslashes.
+  assert.equal(planStatusline({}, 'install', node, tap).after.statusLine.command, good);
+  const broken = { statusLine: { type: 'command', command: `"${node}" ${tap} -- bash ~/.claude/sl.sh` } };
+  const fix = planStatusline(broken, 'install', node, tap);
+  assert.equal(fix.changed, true);
+  assert.equal(fix.after.statusLine.command, `${good} -- bash ~/.claude/sl.sh`);
+  assert.equal(planStatusline(fix.after, 'install', node, tap).changed, false);
+  assert.equal(planStatusline(fix.after, 'uninstall').after.statusLine.command, 'bash ~/.claude/sl.sh');
 });
 
 // ------------------------------------------------------------------ firewall + router

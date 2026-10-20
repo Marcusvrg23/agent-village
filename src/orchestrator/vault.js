@@ -2,7 +2,7 @@
 // the village data folder (~/.agent-village/orchestrator) so it never writes into the user's repositories.
 //   missions/<id>/mission.json · spec.md · events.jsonl · handoffs/ · evidence/ · release.md
 //   audit.jsonl (approvals, runs, cancellations)
-import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const SAFE_ID = /^M-\d{8}-\d{6}-[a-z0-9]{4}$/;
@@ -61,6 +61,11 @@ export class ContextVault {
   list(limit = 30) {
     if (!existsSync(this.missionsDir)) return [];
     return readdirSync(this.missionsDir).filter((n) => SAFE_ID.test(n)).sort().reverse().slice(0, limit).map((id) => this.load(id)).filter(Boolean);
+  }
+
+  /** A retry must not accidentally serve the result of the previous attempt. */
+  clearResult(id) {
+    rmSync(path.join(this.dir(id), 'result.md'), { force: true });
   }
 
   /** Read a mission-local artifact without accepting arbitrary paths from callers. */

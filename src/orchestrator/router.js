@@ -22,11 +22,14 @@ function maxUsed(quota) {
   return w.length ? Math.max(...w.map((x) => x.usedPercent)) : null;
 }
 
+/** Runtime type of a probe ("claude-code" or "codex"); adapters of extra accounts are "<runtime>@<account>". */
+export const runtimeOf = (probe) => probe?.runtime ?? String(probe?.id ?? '').split('@')[0];
+
 /** Firewall + capability check for one adapter. Returns {eligible, waiting, reasons[]}. Pure. */
 export function checkAdapter(probe, quota, { needsEdit = false } = {}) {
   const reasons = [];
   if (!probe || !probe.installed) return { eligible: false, waiting: false, reasons: [probe?.reasons?.[0] ?? 'Adapter indisponível.'] };
-  if (!POLICY.allowedRuntimeTypes.includes(probe.id)) return { eligible: false, waiting: false, reasons: ['Runtime fora da política.'] };
+  if (!POLICY.allowedRuntimeTypes.includes(runtimeOf(probe))) return { eligible: false, waiting: false, reasons: ['Runtime fora da política.'] };
   const b = probe.billing ?? {};
   if (b.mode === 'api') return { eligible: false, waiting: false, reasons: [`Firewall financeiro: ${b.reason ?? 'cobrança por API'}. Gasto autorizado: US$ 0.`] };
   if (b.mode !== 'subscription' || !b.verified) return { eligible: false, waiting: false, reasons: [`Firewall financeiro: modo de cobrança não verificado (${b.reason ?? 'desconhecido'}).`] };
@@ -55,16 +58,19 @@ export function route({ mission, probes = {}, quotas = {}, running = [], history
     decision.reasons.push(`Limite de ${POLICY.maxParallelAgents} agentes simultâneos atingido (total, não por provedor).`);
     return decision;
   }
-  const wanted = mission.runtime && mission.runtime !== 'auto' ? [mission.runtime] : POLICY.allowedRuntimeTypes;
+  // Manual choice: a runtime type (any of its accounts) or one specific account ("codex@trabalho").
+  const choice = mission.runtime && mission.runtime !== 'auto' ? mission.runtime : null;
+  const wantedId = (id) => !choice || id === choice || runtimeOf({ id }) === choice;
+  const ids = [...new Set([...POLICY.allowedRuntimeTypes, ...Object.keys(probes)])].filter((id) => probes[id] || POLICY.allowedRuntimeTypes.includes(id));
   let anyWaiting = false;
-  for (const id of POLICY.allowedRuntimeTypes) {
+  for (const id of ids) {
     const chk = checkAdapter(probes[id], quotas[id], { needsEdit: mission.mode === 'edit' });
-    const c = { id, eligible: chk.eligible && wanted.includes(id), waiting: chk.waiting, reasons: chk.reasons, score: null };
-    if (chk.eligible && !wanted.includes(id)) c.reasons = [...chk.reasons, 'Fora da escolha manual do operador.'];
-    if (chk.waiting && wanted.includes(id)) anyWaiting = true;
+    const c = { id, eligible: chk.eligible && wantedId(id), waiting: chk.waiting, reasons: chk.reasons, score: null };
+    if (chk.eligible && !wantedId(id)) c.reasons = [...chk.reasons, 'Fora da escolha manual do operador.'];
+    if (chk.waiting && wantedId(id)) anyWaiting = true;
     if (c.eligible) {
       const used = maxUsed(quotas[id]);
-      const h = history[id] ?? { accepted: 0, total: 0 };
+      const h = history[id] ?? history[runtimeOf({ id })] ?? { accepted: 0, total: 0 };
       const acceptance = h.total >= 3 ? h.accepted / h.total : null;
       c.score = (used === null ? 50 : 100 - used) + (acceptance === null ? 0 : acceptance * 40);
       c.why = [used === null ? 'cota sem dado atual' : `${100 - used}% da janela mais apertada disponível`,
@@ -72,7 +78,7 @@ export function route({ mission, probes = {}, quotas = {}, running = [], history
     }
     decision.candidates.push(c);
   }
-  const eligible = decision.candidates.filter((c) => c.eligible).sort((a, b) => b.score - a.score || POLICY.allowedRuntimeTypes.indexOf(a.id) - POLICY.allowedRuntimeTypes.indexOf(b.id));
+  const eligible = decision.candidates.filter((c) => c.eligible).sort((a, b) => b.score - a.score || POLICY.allowedRuntimeTypes.indexOf(runtimeOf(a)) - POLICY.allowedRuntimeTypes.indexOf(runtimeOf(b)) || a.id.localeCompare(b.id));
   if (eligible.length) {
     decision.adapter = eligible[0].id;
     decision.status = 'ready';

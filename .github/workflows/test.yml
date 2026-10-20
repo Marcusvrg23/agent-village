@@ -1,0 +1,44 @@
+name: testes
+
+on:
+  push:
+    branches: [main, feat/agent-village]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.os }} · Node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      # Sem npm install: o app não tem dependências de produção e os testes usam só módulos node:*.
+      - run: node --test
+
+  docker:
+    name: Docker (build + smoke)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pastas de exemplo do host
+        run: mkdir -p ~/.claude/projects ~/.codex/sessions ~/.agent-village && chmod 777 ~/.agent-village
+      - run: docker compose up -d --build
+      - name: Vila respondendo dentro do container
+        run: |
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:4173/api/health && break; sleep 1; done
+          curl -fsS http://127.0.0.1:4173/village/ | grep -q "Agent Village"
+          curl -fsS http://127.0.0.1:4173/api/village/state | grep -q '"allowedApiSpendUsd":0'
+          curl -fsS http://127.0.0.1:4173/api/village/state | grep -q '"control":false'
+      - if: always()
+        run: docker compose logs

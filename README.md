@@ -1,6 +1,14 @@
-# Codex Ops Room
+# Agent Village (e o Codex Ops Room)
 
-Monitor local, somente leitura, das sessões Codex. A Web V1 estende a V0 e preserva a imagem oficial `public/quality-ops-room-reference.webp`.
+Vila local em pixel art onde os seus agentes do **Claude Code** e do **Codex** aparecem trabalhando, levantam a mão quando precisam de você e executam missões aprovadas por você, sem gasto de API. Inclui o Codex Ops Room original (monitor somente leitura das sessões Codex), que preserva a imagem oficial `public/quality-ops-room-reference.webp`.
+
+**Roda em Windows, macOS e Linux** (Node.js 20+, sem dependências de produção), em Docker ou como aplicativo desktop. Testes automáticos nos três sistemas: `.github/workflows/test.yml`.
+
+| Como rodar | Comando | Observação |
+|---|---|---|
+| Node (qualquer sistema) | `npm run village` | Abre http://127.0.0.1:4173/village/ |
+| Docker | `docker compose up -d` | Só observa (execução de missões desligada no container). No Windows, antes: `set VILLAGE_HOST_HOME=%USERPROFILE%` |
+| Desktop (Electron) | `npm run desktop` / `npm run package:desktop` | Empacote no próprio sistema de destino; no macOS o app não é assinado (botão direito › Abrir na primeira vez) |
 
 ## Web
 
@@ -98,7 +106,26 @@ Camada visual só no frontend (`public/life-mode.js`, `life-view.js`, `life.css`
 
 Baseline: `e3c1f4e`. Os 14 testes originais foram mantidos. Watcher, normalizador e arte da V0 permanecem inalterados.
 
-## Electron Windows
+## V2.2 — precisa de você, várias contas, celular, acampamentos, espera, vida social e visuais
+
+**Mão levantada ("precisa de você").** Quando o Claude Code ou o Codex pede uma permissão, o avatar daquela sessão corre até o Gatehouse e levanta a mão; um cartão mostra o que o agente quer fazer (comando, arquivo, página) com **Aprovar**, **Recusar** (com motivo) e **Responder no terminal**. Vale o que você responder primeiro, aqui ou no terminal. Sessões paradas esperando a próxima instrução também aparecem ("esperando você no terminal"). O botão 🔔 liga som e notificação do navegador.
+- Instalação (uma vez, com prévia e backup): `npm run village:setup -- hooks install --yes`. No Claude Code entra um hook `PermissionRequest` (e um `Notification` de `idle_prompt`) em `settings.json`, em formato exec (`command` + `args`, sem shell, funciona no Windows sem Git Bash) e com `onFailure: continue`. No Codex entra um hook `PermissionRequest` em `<CODEX_HOME>/hooks.json`; o Codex pede para você confiar nele uma vez em `/hooks`. Remover: `npm run village:setup -- hooks uninstall --yes`.
+- Requer Node no computador (o hook é um script Node) e Claude Code 2.1.295 ou mais novo (por causa do `onFailure`). Com a vila fechada ou sem página aberta, o hook sai na hora e tudo segue no terminal. Perguntas do tipo AskUserQuestion aparecem no cartão, mas são respondidas no terminal.
+- Segurança: o hook só fala com 127.0.0.1 e se autentica com um segredo gravado em `~/.agent-village/hook.json` (permissão 600), recriado a cada início da vila. Nada aprova sozinho: cada decisão vem de um clique.
+
+**Várias contas.** A vila encontra sozinha cada conta do Claude Code (`~/.claude`, `~/.claude-*` com `projects/`) e do Codex (`~/.codex`, `~/.codex-*`), olhando só se as pastas existem (nunca abre credenciais). A Fonte de Elixir mostra a cota de cada conta, o roteador escolhe a conta com mais cota e, no painel de missão, dá para fixar uma conta. Uma missão de outra conta roda com `CLAUDE_CONFIG_DIR`/`CODEX_HOME` daquela pasta (a conta padrão roda sem mudar nada). Nomes amigáveis: `~/.agent-village/accounts.json`, por exemplo `{"claude-trabalho": {"label": "Trabalho"}}`. Lista: `npm run village:setup -- contas`. Pastas fora do padrão: `VILLAGE_CLAUDE_DIRS` e `VILLAGE_CODEX_HOMES` (separadas por `;`). O status line (cota do Claude) e os hooks são instalados em todas as contas (`--conta <id>` para escolher uma).
+
+**Celular na rede local.** Abra a vila com `VILLAGE_LAN=1` (Windows: `set VILLAGE_LAN=1 && npm run village`). Uma segunda porta (4174 por padrão; `VILLAGE_LAN_PORT`) abre para a rede; a principal continua só em 127.0.0.1. No computador, clique em 📱 para ver o endereço e um código de 8 caracteres; no celular, digite o código uma vez. O código muda a cada 10 minutos e a cada pareamento, e cinco erros seguidos bloqueiam por 10 minutos. O celular só acompanha a vila e responde pedidos de permissão (sem missões, sem configurações, sem caminhos de pasta). "Desconectar celulares" revoga tudo. A conexão na rede local não é criptografada: use só em rede de confiança.
+
+**Acampamento por projeto.** Cada projeto com sessão real (pasta da sessão do Claude Code, missão em execução ou sessão do Codex) ganha uma barraca num dos 6 lotes do mapa. Ela é montada quando o projeto aparece, fica com a luz acesa enquanto há agentes trabalhando, apaga quando param e é desmontada 2 minutos depois da última sessão, liberando o lote. Clique na barraca para ver os detalhes.
+
+**Espera de comandos.** Enquanto um comando real (testes, build, deploy) ainda está rodando, o avatar fica no prédio com uma ampulheta e um balão com o comando e o tempo: come pipoca, depois cruza os braços (3 min), junta teias (10 min) e cochila (25 min). Quando o comando termina, comemora com confete ou ganha uma nuvem de chuva se falhou. Vem das transcrições do Claude Code (chamada `Bash` sem resultado) e dos eventos das missões.
+
+**Vida social.** Avatares sem trabalho real jogam pedra-papel-tesoura apostando moedas, batem bola na praça e pescam na ponte, além de conversar e passear. Tudo é local, semeado e sem IA; as moedas são só diversão e nunca têm relação com tokens ou cota. Um trabalho real interrompe qualquer jogo na hora; com movimento reduzido não há jogos.
+
+**Visuais (🎨).** Troque a aparência de qualquer avatar: o visual de outro papel, presets, cores de cabelo e roupa, tom de pele, ou um atlas importado que siga a [política de arte](ART-POLICY.md) (PNG 640×50 com os mesmos 16 quadros, autor e licença obrigatórios). As animações não mudam. As escolhas ficam só neste navegador.
+
+## Electron (Windows, macOS e Linux)
 
 Para desenvolvimento e empacotamento (Node.js 22.12+):
 
@@ -107,6 +134,8 @@ npm.cmd ci --cache .tmp/npm-cache
 npm.cmd run desktop
 npm.cmd run package:windows
 ```
+
+No macOS ou no Linux: `npm ci && npm run package:desktop` (empacota para o sistema atual; para outro: `npm run package:desktop -- --platform linux --arch x64`).
 
 Abra `release/Codex Ops Room-win32-x64/Codex Ops Room.exe`. Mantenha a pasta inteira junto do executável: é um aplicativo portátil em pasta, não um instalador ou executável único. A distribuição não inclui node_modules, testes ou cópias dos rollouts. A máquina de destino não precisa ter Node instalado.
 

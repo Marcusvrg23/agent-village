@@ -6,11 +6,12 @@ import { existsSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { ClaudeCodeAdapter, CodexAdapter } from './adapters.js';
+import { discoverAccounts } from './accounts.js';
 import { evaluateGate } from './gates.js';
 import { UsageLedger } from './ledger.js';
 import { QuotaStore } from './quota.js';
 import { probeRea, reaAuthorization } from './rea.js';
-import { POLICY, fallbackAfterFailure, route } from './router.js';
+import { POLICY, fallbackAfterFailure, route, runtimeOf } from './router.js';
 import { classify, compileCapsule, isBinaryTarget, specTemplate } from './sdd.js';
 import { readClaudeStatusline, scanClaudeSessions, scanCodex, statuslineDir, villageDataDir } from './sources.js';
 import { ContextVault, newMissionId, redact } from './vault.js';
@@ -55,10 +56,37 @@ export class Orchestrator extends EventEmitter {
     this.running = new Map(); // missionId -> {handle, adapter, startedAt}
     this.missions = new Map(this.vault.list(50).map((m) => [m.id, m]));
     for (const m of this.missions.values()) if (m.status === 'running') { m.status = 'interrupted'; this.vault.save(m); }
-    this.adapters = adapters ?? {
-      'claude-code': new ClaudeCodeAdapter({ env, hasQuotaCapture: () => Boolean(readClaudeStatusline(statuslineDir(env))) }),
-      codex: new CodexAdapter({ env, rolloutPlan: () => this.quotas.view('codex', this.now()).snapshot?.plan ?? null }),
-    };
+    // One adapter per account: "claude-code" / "codex" for the default accounts, "<runtime>@<id>" for the others.
+    this.accounts = discoverAccounts({ env, dataDir });
+    if (adapters) this.adapters = adapters;
+    else {
+      this.adapters = {};
+      for (const account of this.accounts.claude) {
+        this.adapters[account.key] = new ClaudeCodeAdapter({ env, account, hasQuotaCapture: () => Boolean(this.#claudeQuota(account, this.now())) });
+      }
+      for (const account of this.accounts.codex) {
+        this.adapters[account.key] = new CodexAdapter({ env, account, rolloutPlan: () => this.quotas.view(account.key, this.now()).snapshot?.plan ?? null });
+      }
+    }
+  }
+
+  /** Adapter ids, in a stable order (also the quota keys). */
+  keys() { return Object.keys(this.adapters); }
+
+  accountList() {
+    return this.keys().map((key) => {
+      const acc = this.adapters[key].account;
+      return { key, runtime: runtimeOf({ id: key, runtime: this.adapters[key].runtime }), id: acc?.id ?? null, label: acc?.label ?? 'principal', isDefault: acc ? acc.isDefault : true };
+    });
+  }
+
+  #claudeQuota(account, now) {
+    const dir = statuslineDir(this.env);
+    return readClaudeStatusline(dir, now, account.captureId) ?? (this.accounts.claude.length === 1 ? readClaudeStatusline(dir, now) : undefined);
+  }
+
+  #quotaViews(now) {
+    return Object.fromEntries(this.keys().map((k) => [k, this.quotas.view(k, now)]));
   }
 
   emitVillage(event) {
@@ -70,21 +98,32 @@ export class Orchestrator extends EventEmitter {
   /** Scans local sources (cheap, read-only). Called on an interval by the server. */
   poll() {
     const now = this.now();
-    const before = JSON.stringify(this.quotas.publicView(now));
-    const claudeQuota = readClaudeStatusline(statuslineDir(this.env), now);
-    if (claudeQuota) this.quotas.set(claudeQuota, now);
-    const codex = scanCodex({ home: this.env.CODEX_HOME ? path.resolve(this.env.CODEX_HOME) : path.join(os.homedir(), '.codex'), now });
-    if (codex.quota) this.quotas.set(codex.quota, now);
-    this.codexSessions = codex.sessions;
-    for (const s of codex.sessions) this.ledger.record({ provider: 'codex', sessionId: s.id, usage: s.usage, at: s.at, source: 'codex-rollout' });
-    this.claudeSessions = scanClaudeSessions({ configDir: this.env.CLAUDE_CONFIG_DIR ? path.resolve(this.env.CLAUDE_CONFIG_DIR.split(',')[0].trim()) : path.join(os.homedir(), '.claude'), now, cache: this.claudeCache });
-    for (const s of this.claudeSessions) {
-      for (const x of [s, ...s.subagents]) {
-        if (Object.values(x.usage).some((v) => v !== null)) this.ledger.record({ provider: 'claude-code', sessionId: x.id, model: x.model, usage: x.usage, at: x.lastAt, source: 'claude-transcript' });
+    const before = JSON.stringify(this.quotas.publicView(now, this.keys()));
+    const claudeAccounts = this.accounts.claude.length ? this.accounts.claude : [{ key: 'claude-code', id: null, dir: this.env.CLAUDE_CONFIG_DIR ? path.resolve(this.env.CLAUDE_CONFIG_DIR.split(',')[0].trim()) : path.join(os.homedir(), '.claude'), captureId: '.claude' }];
+    const codexAccounts = this.accounts.codex.length ? this.accounts.codex : [{ key: 'codex', id: null, dir: this.env.CODEX_HOME ? path.resolve(this.env.CODEX_HOME) : path.join(os.homedir(), '.codex') }];
+    this.codexSessions = [];
+    for (const acc of codexAccounts) {
+      const codex = scanCodex({ home: acc.dir, now });
+      if (codex.quota) this.quotas.set({ ...codex.quota, provider: acc.key }, now);
+      for (const s of codex.sessions) {
+        this.codexSessions.push({ ...s, account: acc.id });
+        this.ledger.record({ provider: acc.key, sessionId: s.id, usage: s.usage, at: s.at, source: 'codex-rollout' });
       }
     }
-    const after = JSON.stringify(this.quotas.publicView(now));
-    if (before !== after) this.emitVillage({ type: 'provider.quota', source: 'provider', quotas: this.quotas.publicView(now) });
+    this.claudeSessions = [];
+    for (const acc of claudeAccounts) {
+      const q = this.#claudeQuota(acc, now);
+      if (q) this.quotas.set({ ...q, provider: acc.key }, now);
+      for (const s of scanClaudeSessions({ configDir: acc.dir, now, cache: this.claudeCache })) {
+        this.claudeSessions.push({ ...s, account: acc.id });
+        for (const x of [s, ...s.subagents]) {
+          if (Object.values(x.usage).some((v) => v !== null)) this.ledger.record({ provider: acc.key, sessionId: x.id, model: x.model, usage: x.usage, at: x.lastAt, source: 'claude-transcript' });
+        }
+      }
+    }
+    this.claudeSessions.sort((a, b) => (Date.parse(b.lastAt ?? 0) || 0) - (Date.parse(a.lastAt ?? 0) || 0));
+    const after = JSON.stringify(this.quotas.publicView(now, this.keys()));
+    if (before !== after) this.emitVillage({ type: 'provider.quota', source: 'provider', quotas: this.quotas.publicView(now, this.keys()) });
     return { changed: before !== after };
   }
 
@@ -102,17 +141,25 @@ export class Orchestrator extends EventEmitter {
   /** Fountain click: re-read the authorized sources (and ask Codex app-server for its quota). Never resets. */
   async refreshQuota() {
     const now = this.now();
-    const refilledBefore = Object.fromEntries(['claude-code', 'codex'].map((p) => [p, this.quotas.view(p, now).refilledAt]));
+    const keys = this.keys();
+    const refilledBefore = Object.fromEntries(keys.map((p) => [p, this.quotas.view(p, now).refilledAt]));
     this.poll();
     const notes = [];
-    const codex = this.adapters.codex;
-    if (codex?.readQuota && this.probes.codex?.billing?.mode === 'subscription') {
-      const r = await codex.readQuota().catch((e) => ({ error: String(e.message) }));
-      if (r.snapshot) { this.quotas.set(r.snapshot, this.now()); notes.push('Codex: cota lida no app-server (sem turno de modelo).'); } else notes.push(`Codex: ${r.error}`);
-    } else notes.push('Codex: usando os rollouts locais (app-server não verificado).');
-    notes.push(readClaudeStatusline(statuslineDir(this.env), now) ? 'Claude: captura do statusline lida.' : 'Claude: sem captura do statusline (rode `npm run village:setup -- statusline install`).');
-    const view = this.quotas.publicView(this.now());
-    for (const p of ['claude-code', 'codex']) {
+    for (const key of keys) {
+      const a = this.adapters[key];
+      if (runtimeOf({ id: key, runtime: a.runtime }) !== 'codex') continue;
+      const name = a.label ?? key;
+      if (a.readQuota && this.probes[key]?.billing?.mode === 'subscription') {
+        const r = await a.readQuota().catch((e) => ({ error: String(e.message) }));
+        if (r.snapshot) { this.quotas.set({ ...r.snapshot, provider: key }, this.now()); notes.push(`${name}: cota lida no app-server (sem turno de modelo).`); } else notes.push(`${name}: ${r.error}`);
+      } else notes.push(`${name}: usando os rollouts locais (app-server não verificado).`);
+    }
+    for (const key of keys.filter((k) => runtimeOf({ id: k, runtime: this.adapters[k].runtime }) === 'claude-code')) {
+      const name = this.adapters[key].label ?? key;
+      notes.push(this.quotas.view(key, now).snapshot ? `${name}: captura do statusline lida.` : `${name}: sem captura do statusline (rode \`npm run village:setup -- statusline install\`).`);
+    }
+    const view = this.quotas.publicView(this.now(), keys);
+    for (const p of keys) {
       if (view[p].refilledAt && view[p].refilledAt !== refilledBefore[p]) this.emitVillage({ type: 'provider.reset_verified', source: 'provider', provider: p });
     }
     this.emitVillage({ type: 'provider.quota', source: 'provider', quotas: view });
@@ -124,7 +171,7 @@ export class Orchestrator extends EventEmitter {
   async draft({ prompt, cwd, runtime = 'auto', mode = 'read', target = null, authorized = false }) {
     const text = redact(String(prompt ?? '').trim()).slice(0, PROMPT_MAX);
     if (!text) throw Object.assign(new Error('Escreva o pedido da missão.'), { status: 400 });
-    if (!['auto', ...POLICY.allowedRuntimeTypes].includes(runtime)) throw Object.assign(new Error('Runtime inválido.'), { status: 400 });
+    if (!['auto', ...POLICY.allowedRuntimeTypes, ...this.keys()].includes(runtime)) throw Object.assign(new Error('Runtime inválido.'), { status: 400 });
     if (!['read', 'edit'].includes(mode)) throw Object.assign(new Error('Modo inválido.'), { status: 400 });
     const dir = checkProjectDir(cwd, allowedRoots(this.env));
     const cls = classify({ prompt: text, target, mode });
@@ -153,7 +200,7 @@ export class Orchestrator extends EventEmitter {
 
   #route(mission) {
     const now = this.now();
-    const quotas = Object.fromEntries(['claude-code', 'codex'].map((p) => [p, this.quotas.view(p, now)]));
+    const quotas = this.#quotaViews(now);
     return route({ mission, probes: this.probes, quotas, running: [...this.running.keys()].map((id) => ({ id })), history: this.vault.history() });
   }
 
@@ -199,7 +246,7 @@ export class Orchestrator extends EventEmitter {
     mission.observed = { states: [], tools: 0, denials: 0, reaUsed: false };
     this.vault.save(mission);
     this.vault.audit({ action: 'run', missionId: mission.id, adapter: adapterId });
-    this.emitVillage({ type: 'agent.spawned', source: 'orchestrator-controlled', missionId: mission.id, provider: adapterId, role: 'LEAD', agentId: `${mission.id}:lead`, label: mission.goal });
+    this.emitVillage({ type: 'agent.spawned', source: 'orchestrator-controlled', missionId: mission.id, provider: adapter.runtime ?? runtimeOf({ id: adapterId }), account: adapter.account?.id ?? null, role: 'LEAD', agentId: `${mission.id}:lead`, label: mission.goal });
     const handle = adapter.run({
       prompt: `${mission.capsule}\n\nPedido do operador:\n${mission.prompt}`, cwd: mission.cwd, mode: mission.mode, name: `village-${mission.id}`,
       onEvent: (e) => this.#onAdapterEvent(mission, e),
@@ -216,8 +263,15 @@ export class Orchestrator extends EventEmitter {
       mission.observed.tools += 1;
       if (!mission.observed.states.includes(e.state)) mission.observed.states.push(e.state);
       if (e.role === 'RE_ANALYST') mission.observed.reaUsed = true;
-      const ev = { type: 'agent.state', source: 'orchestrator-controlled', missionId: mission.id, provider: e.provider, agentId: e.agentId ?? mission.sessionId,
-        parentAgentId: e.parentId ?? null, role: e.role, state: e.state, label: e.target ? `${e.tool} · ${e.target}` : e.tool };
+      const ev = { type: 'agent.state', source: 'orchestrator-controlled', missionId: mission.id, provider: e.provider, account: e.account ?? null, agentId: e.agentId ?? mission.sessionId,
+        parentAgentId: e.parentId ?? null, role: e.role, state: e.state, label: e.command ?? (e.target ? `${e.tool} · ${e.target}` : e.tool),
+        wait: e.command ? { since: new Date(this.now()).toISOString(), label: e.command } : null };
+      this.vault.appendEvent(mission.id, ev);
+      this.emitVillage(ev);
+    } else if (e.type === 'command_done') {
+      // A real command finished: the avatar celebrates (ok) or gets a rain cloud (failed) for a moment.
+      const ev = { type: 'agent.state', source: 'orchestrator-controlled', missionId: mission.id, provider: e.provider, account: e.account ?? null, agentId: e.agentId ?? mission.sessionId,
+        role: e.role, state: e.state, label: e.label, wait: null, outcome: { ok: e.ok } };
       this.vault.appendEvent(mission.id, ev);
       this.emitVillage(ev);
     } else if (e.type === 'permission_denied') {
@@ -243,7 +297,7 @@ export class Orchestrator extends EventEmitter {
     if (!result.ok && result.quotaExhausted && !mission.fallbackUsed) {
       const now = this.now();
       const d = fallbackAfterFailure({ mission, failed: adapterId, settled: true, probes: this.probes, running: [...this.running.keys()].map((id) => ({ id })),
-        quotas: Object.fromEntries(['claude-code', 'codex'].map((p) => [p, this.quotas.view(p, now)])) });
+        quotas: this.#quotaViews(now) });
       mission.fallbackUsed = true;
       if (d.status === 'ready' && d.adapter) {
         this.vault.audit({ action: 'fallback', missionId: mission.id, from: adapterId, to: d.adapter });
@@ -276,7 +330,7 @@ export class Orchestrator extends EventEmitter {
 
   publicProbes() {
     return Object.fromEntries(Object.entries(this.probes).map(([id, p]) => [id, {
-      id, label: p.label, installed: p.installed, version: p.version, status: p.status, billing: { mode: p.billing?.mode, verified: p.billing?.verified, reason: p.billing?.reason },
+      id, runtime: p.runtime ?? runtimeOf(p), account: p.account ?? null, label: p.label, installed: p.installed, version: p.version, status: p.status, billing: { mode: p.billing?.mode, verified: p.billing?.verified, reason: p.billing?.reason },
       plan: p.plan ?? null, capabilities: p.capabilities, strippedVars: p.strippedVars ?? [], reasons: p.reasons ?? [], probedAt: p.probedAt ?? null,
     }]));
   }
@@ -284,12 +338,12 @@ export class Orchestrator extends EventEmitter {
   state() {
     const now = this.now();
     return {
-      control: this.control, policy: POLICY, quotas: this.quotas.publicView(now), ledger: this.ledger.totals(), adapters: this.publicProbes(), rea: this.rea,
+      control: this.control, policy: POLICY, accounts: this.accountList(), quotas: this.quotas.publicView(now, this.keys()), ledger: this.ledger.totals(), adapters: this.publicProbes(), rea: this.rea,
       missions: [...this.missions.values()].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, 15).map((m) => this.publicMission(m)),
       running: [...this.running.keys()],
       observed: {
         claude: this.claudeSessions.slice(0, 8).map((s) => ({ ...s, subagents: s.subagents.slice(0, 6) })),
-        codex: this.codexSessions.slice(0, 8).map(({ provider, id, usage, at }) => ({ provider, id, usage, at })),
+        codex: this.codexSessions.slice(0, 8).map(({ provider, id, usage, at, account }) => ({ provider, id, usage, at, account })),
       },
       dataDir: this.dataDir,
     };

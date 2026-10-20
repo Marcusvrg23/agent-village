@@ -32,15 +32,20 @@ function sandbox(extraEnv = {}) {
   const bin = path.join(home, 'bin');
   mkdirSync(bin);
   for (const name of ['claude', 'codex']) {
-    const f = path.join(bin, name);
-    writeFileSync(f, `#!/bin/sh\nFAKE_CLI_NAME=${name} exec "${process.execPath}" "${FAKE}" "$@"\n`);
-    chmodSync(f, 0o755);
+    if (unix) {
+      const f = path.join(bin, name);
+      writeFileSync(f, `#!/bin/sh\nFAKE_CLI_NAME=${name} exec "${process.execPath}" "${FAKE}" "$@"\n`);
+      chmodSync(f, 0o755);
+    } else {
+      // Windows: a .cmd shim like the ones npm installs for the real CLIs (exercises the shell path).
+      writeFileSync(path.join(bin, `${name}.cmd`), `@echo off\r\nset FAKE_CLI_NAME=${name}\r\n"${process.execPath}" "${FAKE}" %*\r\n`);
+    }
   }
   mkdirSync(path.join(home, '.codex', 'sessions'), { recursive: true });
   mkdirSync(path.join(home, '.claude', 'projects'), { recursive: true });
   mkdirSync(path.join(home, 'proj'));
   const log = path.join(home, 'calls.jsonl');
-  const env = { PATH: `${bin}:${process.env.PATH}`, HOME: home, CODEX_HOME: path.join(home, '.codex'), CLAUDE_CONFIG_DIR: path.join(home, '.claude'),
+  const env = { PATH: `${bin}${path.delimiter}${process.env.PATH}`, PATHEXT: process.env.PATHEXT, SystemRoot: process.env.SystemRoot, ComSpec: process.env.ComSpec, HOME: home, USERPROFILE: home, CODEX_HOME: path.join(home, '.codex'), CLAUDE_CONFIG_DIR: path.join(home, '.claude'),
     AGENT_VILLAGE_HOME: path.join(home, '.agent-village'), VILLAGE_PROJECT_ROOTS: home, FAKE_LOG: log, ...extraEnv };
   const calls = () => (existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l)) : []);
   return { home, env, calls, proj: path.join(home, 'proj') };
@@ -253,7 +258,7 @@ test('Release Gate: READY only with everything verified; unverified tests/review
 
 // ------------------------------------------------------------------ end to end with fake CLIs
 
-test('E2E: draft is free; execution needs VILLAGE_CONTROL + approval; prompt goes via stdin; API vars never reach the CLI', { skip: !unix }, async () => {
+test('E2E: draft is free; execution needs VILLAGE_CONTROL + approval; prompt goes via stdin; API vars never reach the CLI', async () => {
   const s = sandbox({ OPENAI_API_KEY: 'sk-should-not-leak-000000', ANTHROPIC_API_KEY: 'sk-ant-should-not-leak-0000' });
   const off = new Orchestrator({ env: s.env, dataDir: path.join(s.home, '.agent-village'), control: false });
   const draft = await off.draft({ prompt: 'Corrija o bug do login e rode os testes', cwd: s.proj });
@@ -292,7 +297,7 @@ test('E2E: draft is free; execution needs VILLAGE_CONTROL + approval; prompt goe
   assert.match(readFileSync(path.join(s.home, '.agent-village2', 'orchestrator', 'audit.jsonl'), 'utf8'), /"action":"approve"/);
 });
 
-test('E2E: API-billed logins are never executed; quota exhaustion falls back once to the other subscription', { skip: !unix }, async () => {
+test('E2E: API-billed logins are never executed; quota exhaustion falls back once to the other subscription', async () => {
   const api = sandbox({ FAKE_CLAUDE_AUTH: 'api_key', FAKE_CODEX_LOGIN: 'apikey' });
   const o = new Orchestrator({ env: api.env, dataDir: path.join(api.home, '.av'), control: true });
   const m = await o.draft({ prompt: 'Implemente a tela nova', cwd: api.proj });
@@ -316,7 +321,7 @@ test('E2E: API-billed logins are never executed; quota exhaustion falls back onc
   assert.ok(['completed', 'failed'].includes(final.status));
 });
 
-test('E2E: Fountain refresh reads Codex quota through app-server without any model turn', { skip: !unix }, async () => {
+test('E2E: Fountain refresh reads Codex quota through app-server without any model turn', async () => {
   const s = sandbox();
   const o = new Orchestrator({ env: s.env, dataDir: path.join(s.home, '.av'), control: false });
   await o.probeAll(true);
@@ -327,7 +332,7 @@ test('E2E: Fountain refresh reads Codex quota through app-server without any mod
   assert.equal(s.calls().filter((c) => c.args.includes('-p') || c.args[0] === 'exec').length, 0);
 });
 
-test('Control plane: loopback host only, JSON + same origin + CSRF token required for writes', { skip: !unix }, async (t) => {
+test('Control plane: loopback host only, JSON + same origin + CSRF token required for writes', async (t) => {
   const s = sandbox();
   const o = new Orchestrator({ env: s.env, dataDir: path.join(s.home, '.av'), control: false });
   const cp = createControlPlane(o, { token: 'tok123' });

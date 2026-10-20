@@ -151,6 +151,18 @@
   "WT_3": [
    1215,
    316
+  ],
+  "GH_Q1_SPOT": [
+   612,
+   652
+  ],
+  "GH_Q2_SPOT": [
+   672,
+   652
+  ],
+  "FISH_SPOT": [
+   992,
+   646
   ]
  },
  "edges": [
@@ -301,6 +313,22 @@
   [
    "WT_3",
    "WT_SPOT"
+  ],
+  [
+   "GH_SPOT",
+   "GH_Q1_SPOT"
+  ],
+  [
+   "GH_SPOT",
+   "GH_Q2_SPOT"
+  ],
+  [
+   "GH_1",
+   "GH_Q1_SPOT"
+  ],
+  [
+   "SH_SPOT",
+   "FISH_SPOT"
   ]
  ],
  "buildings": {
@@ -314,7 +342,7 @@
     215,
     160
    ],
-   "about": "Coordena\u00e7\u00e3o: classifica a miss\u00e3o, escolhe a profundidade da spec e controla o or\u00e7amento."
+   "about": "Coordenação: classifica a missão, escolhe a profundidade da spec e controla o orçamento."
   },
   "OBSERVATORY": {
    "label": "Observatory",
@@ -326,7 +354,7 @@
     148,
     190
    ],
-   "about": "Explora\u00e7\u00e3o: mapeia o reposit\u00f3rio e responde perguntas delimitadas."
+   "about": "Exploração: mapeia o repositório e responde perguntas delimitadas."
   },
   "RE_LAB": {
    "label": "RE Lab",
@@ -350,7 +378,7 @@
     262,
     165
    ],
-   "about": "Specs adaptativas S0\u2013S4 e crit\u00e9rios de aceite."
+   "about": "Specs adaptativas S0–S4 e critérios de aceite."
   },
   "FORGE": {
    "label": "Forge",
@@ -362,7 +390,7 @@
     212,
     175
    ],
-   "about": "Implementa\u00e7\u00e3o a partir da spec aceita."
+   "about": "Implementação a partir da spec aceita."
   },
   "WATCHTOWER": {
    "label": "Watchtower",
@@ -374,7 +402,7 @@
     125,
     240
    ],
-   "about": "Revis\u00e3o de diff, riscos e ader\u00eancia \u00e0 spec."
+   "about": "Revisão de diff, riscos e aderência à spec."
   },
   "TEST_LAB": {
    "label": "Test Lab",
@@ -386,7 +414,7 @@
     230,
     165
    ],
-   "about": "Testes derivados dos crit\u00e9rios de aceite e benchmarks."
+   "about": "Testes derivados dos critérios de aceite e benchmarks."
   },
   "CONTEXT_VAULT": {
    "label": "Context Vault",
@@ -398,7 +426,7 @@
     240,
     175
    ],
-   "about": "Mem\u00f3ria local: specs, evid\u00eancias e c\u00e1psulas m\u00ednimas por papel."
+   "about": "Memória local: specs, evidências e cápsulas mínimas por papel."
   },
   "GATEHOUSE": {
    "label": "Gatehouse",
@@ -410,7 +438,7 @@
     240,
     165
    ],
-   "about": "Release Gate: s\u00f3 libera com evid\u00eancia real."
+   "about": "Release Gate: só libera com evidência real."
   }
  },
  "social": [
@@ -831,6 +859,44 @@
    168,
    152
   ],
-  "about": "Cota real dos planos (Claude Pro e Codex Plus). Clique para atualizar a leitura; nunca rep\u00f5e cr\u00e9ditos."
+  "about": "Cota real dos planos (Claude Pro e Codex Plus). Clique para atualizar a leitura; nunca repõe créditos."
+ },
+ "attention": {
+  "queue": [
+   "GH_Q1_SPOT",
+   "GH_Q2_SPOT",
+   "GH_1"
+  ],
+  "keeper": "RELEASE_GATE",
+  "about": "Fila do Gatehouse: avatares com um pedido real esperando a sua resposta."
+ },
+ "camps": {
+  "plots": [
+   [
+    205,
+    452
+   ],
+   [
+    918,
+    618
+   ],
+   [
+    1218,
+    494
+   ],
+   [
+    878,
+    338
+   ],
+   [
+    1050,
+    612
+   ],
+   [
+    425,
+    335
+   ]
+  ],
+  "about": "Lotes do acampamento: uma barraca por projeto com sessão real."
  }
 }

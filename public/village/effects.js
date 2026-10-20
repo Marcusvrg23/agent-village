@@ -32,8 +32,9 @@ function makeCanvas(w, h) {
 }
 
 // ---------------------------------------------------------------- particles
-const K = Object.freeze({ SMOKE: 0, SPARK: 1, BUBBLE: 2, FIREFLY: 3, LEAF: 4, RAIN: 5, SPLASH: 6, MIST: 7, DROP: 8, BUTTERFLY: 9 });
-const GRAVITY = [-6, 160, -20, 0, 18, 0, 90, -8, 150, 0];
+const K = Object.freeze({ SMOKE: 0, SPARK: 1, BUBBLE: 2, FIREFLY: 3, LEAF: 4, RAIN: 5, SPLASH: 6, MIST: 7, DROP: 8, BUTTERFLY: 9, CONFETTI: 10 });
+const GRAVITY = [-6, 160, -20, 0, 18, 0, 90, -8, 150, 0, 120];
+const CONFETTI_COLORS = ['#ff5d73', '#ffd84d', '#5dffb0', '#6fb7ff', '#c08bff', '#ffffff'];
 const LEAF_COLORS = ['#7fbf4d', '#a7c957', '#d9b44a', '#5f9e3a'];
 const WING_COLORS = ['#ffd166', '#f7a8d8', '#9ad0ff', '#ffffff'];
 
@@ -149,6 +150,11 @@ export class Particles {
           ctx.fillRect(px, py, 1, 1);
           break;
         }
+        case K.CONFETTI:
+          ctx.globalAlpha = Math.min(1, (1 - t) * 3);
+          ctx.fillStyle = CONFETTI_COLORS[this.color[i] % CONFETTI_COLORS.length];
+          ctx.fillRect(px, py, Math.sin(this.age[i] * 9 + this.ph[i]) > 0 ? 2 : 1, 2);
+          break;
         default:
           break; // SPARK and FIREFLY are drawn additively by drawGlowing()
       }
@@ -298,6 +304,11 @@ export class SceneFx {
     ctx.drawImage(this.#ensureLit(amb, weather), 0, 0);
   }
 
+  /** A role got a new look (skins): drop its tinted copy so the next frame rebuilds it. */
+  forgetAtlas(role) {
+    this.tinted.delete(`atlas|${role}`);
+  }
+
   /** Avatar atlas multiplied by the global tint (cached per light key). */
   atlasFor(role, atlas, amb) {
     if (isNeutral(amb)) return atlas;
@@ -367,6 +378,16 @@ export class SceneFx {
     for (let i = 0; i < 36; i++) {
       const a = (i / 36) * TAU;
       this.particles.spawn(K.SPARK, f.x + Math.cos(a) * 10, f.y + Math.sin(a) * 5, Math.cos(a) * 30, -30 - Math.random() * 30, 0.9 + Math.random() * 0.6, Math.random() < 0.5 ? 2 : 1);
+    }
+  }
+
+  /** Confetti over an avatar: only when a REAL command it was waiting on finished successfully. */
+  confetti(x, y) {
+    if (this.reduced) return;
+    for (let i = 0; i < 34; i++) {
+      const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.2;
+      const v = 40 + Math.random() * 50;
+      this.particles.spawn(K.CONFETTI, x + (Math.random() * 6 - 3), y, Math.cos(a) * v, Math.sin(a) * v, 1.4 + Math.random() * 0.8, 1, i);
     }
   }
 

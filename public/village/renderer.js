@@ -1,5 +1,6 @@
 // Agent Village — Canvas 2D renderer. Draws the cleaned map, depth-sorted independent sprites,
 // foreground occluders and ambient bubbles. No network, no model calls.
+import { drawOverlay } from './overlays.js';
 
 export class Camera {
   constructor(worldW, worldH) {
@@ -13,8 +14,10 @@ export class Camera {
   }
 
   fit(viewW, viewH) {
-    this.scale = Math.min(viewW / this.worldW, viewH / this.worldH);
-    this.minScale = this.scale * 0.9;
+    const contain = Math.min(viewW / this.worldW, viewH / this.worldH);
+    // Portrait screens (phones): zoom in around the plaza instead of a thin strip; drag to see the rest.
+    this.scale = viewH > viewW * 1.15 ? Math.min((viewW / this.worldW) * 2.2, viewH / this.worldH) : contain;
+    this.minScale = contain * 0.9;
     this.maxScale = Math.max(this.scale * 4, 3);
     this.x = (this.worldW - viewW / this.scale) / 2;
     this.y = (this.worldH - viewH / this.scale) / 2;
@@ -68,7 +71,7 @@ export class Renderer {
     this.canvas.height = Math.round(cssH * dpr);
   }
 
-  draw(camera, agents, { selected = null, hovered = null, hoveredBuilding = null, buildings = {}, fx = null, ambient = null, weather = null, now = 0 } = {}) {
+  draw(camera, agents, { selected = null, hovered = null, hoveredBuilding = null, buildings = {}, fx = null, ambient = null, weather = null, now = 0, extras = [], reduced = false, wall = Date.now() } = {}) {
     const { ctx, dpr } = this;
     const [cw, ch] = this.manifest.cell;
     const [ax, ay] = this.manifest.anchor;
@@ -96,9 +99,11 @@ export class Renderer {
     const drawables = [
       ...agents.map((a) => ({ y: a.y, kind: 'agent', a })),
       ...this.occluders.map((o) => ({ y: o.baseline, kind: 'occluder', o })),
+      ...extras.map((e) => ({ y: e.y, kind: 'extra', e })), // project camps (tents), social props
     ].sort((p, q) => p.y - q.y);
 
     for (const d of drawables) {
+      if (d.kind === 'extra') { d.e.draw(ctx, camera); continue; }
       if (d.kind === 'occluder') {
         ctx.drawImage(fx && ambient && weather ? fx.occluderFor(d.o, ambient, weather) : d.o.img, d.o.at[0], d.o.at[1]);
         continue;
@@ -148,6 +153,7 @@ export class Renderer {
         blit(base);
         ctx.globalAlpha = 1;
       }
+      drawOverlay(ctx, a, top, wall, reduced); // raised hand, hourglass, popcorn, cobwebs, rain cloud (real states only)
     }
 
     // Scene lighting and weather over the world (avatars included), under the UI.
@@ -160,11 +166,35 @@ export class Renderer {
     // Screen-space UI: name tags and bubbles stay crisp at any zoom.
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const font = Math.round(Math.min(15, Math.max(11, 11 * camera.scale)));
+    for (const e of extras) {
+      if (!e.label) continue;
+      const [sx, sy] = camera.toScreen(e.x, e.y + 4);
+      this.#sign(sx, sy, e.label, Math.max(10, font - 2), e.lit);
+    }
     for (const a of agents) {
       const [sx, sy] = camera.toScreen(a.x, a.y - ay + 2 + a.bob);
       if (a.role === selected || a.role === hovered) this.#tag(sx, sy - 4, a.label, font, a.presence);
-      if (a.bubble) this.#bubble(sx, sy - (a.role === selected || a.role === hovered ? 24 : 6), a.bubble.text, font);
+      const lift = a.role === selected || a.role === hovered ? 24 : 6;
+      // Real-state bubbles (solid edge): what the agent is waiting on. Ambient ones stay dashed.
+      if (a.task?.needsYou) this.#bubble(sx, sy - lift - 10, 'Preciso de você!', font, true);
+      else if (a.task?.wait && a.task.waitText) this.#bubble(sx, sy - lift - 10, `⏳ ${a.task.waitText}`, font, true);
+      else if (a.bubble) this.#bubble(sx, sy - lift, a.bubble.text, font);
     }
+  }
+
+  // Small wooden sign under a project camp.
+  #sign(x, y, text, font, lit) {
+    const { ctx } = this;
+    ctx.font = `600 ${font}px system-ui, sans-serif`;
+    const label = text.length > 22 ? `${text.slice(0, 21)}…` : text;
+    const w = ctx.measureText(label).width + 10;
+    ctx.fillStyle = lit ? 'rgba(92, 58, 26, 0.92)' : 'rgba(44, 34, 28, 0.85)';
+    roundRect(ctx, x - w / 2, y, w, font + 6, 3);
+    ctx.fill();
+    ctx.fillStyle = lit ? '#ffe9b8' : '#b9ad9a';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, x, y + (font + 6) / 2);
   }
 
   #tag(x, y, text, font, presence) {
@@ -182,7 +212,7 @@ export class Renderer {
   }
 
   // Ambient bubbles are dark with a dashed edge: visibly different from (future) real-event bubbles.
-  #bubble(x, y, text, font) {
+  #bubble(x, y, text, font, real = false) {
     const { ctx } = this;
     ctx.font = `500 ${font}px system-ui, sans-serif`;
     const w = Math.min(220, ctx.measureText(text).width + 16);
@@ -191,12 +221,12 @@ export class Renderer {
     const bx = Math.round(Math.min(Math.max(x - w / 2, 6), this.viewW - w - 6));
     const by = Math.round(Math.max(y - h - 8, 56));
     x = Math.min(Math.max(x, bx + 10), bx + w - 10);
-    ctx.fillStyle = 'rgba(16, 22, 48, 0.9)';
+    ctx.fillStyle = real ? 'rgba(48, 34, 6, 0.94)' : 'rgba(16, 22, 48, 0.9)';
     roundRect(ctx, bx, by, w, h, 7);
     ctx.fill();
-    ctx.setLineDash([3, 3]);
-    ctx.strokeStyle = 'rgba(190, 205, 255, 0.55)';
-    ctx.lineWidth = 1;
+    if (!real) ctx.setLineDash([3, 3]);
+    ctx.strokeStyle = real ? '#ffd84d' : 'rgba(190, 205, 255, 0.55)';
+    ctx.lineWidth = real ? 1.5 : 1;
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.beginPath();
@@ -204,9 +234,9 @@ export class Renderer {
     ctx.lineTo(x, by + h + 6);
     ctx.lineTo(x + 5, by + h);
     ctx.closePath();
-    ctx.fillStyle = 'rgba(16, 22, 48, 0.9)';
+    ctx.fillStyle = real ? 'rgba(48, 34, 6, 0.94)' : 'rgba(16, 22, 48, 0.9)';
     ctx.fill();
-    ctx.fillStyle = '#e8ecff';
+    ctx.fillStyle = real ? '#fff3c4' : '#e8ecff';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(text, x, by + h / 2 + 0.5, w - 10);

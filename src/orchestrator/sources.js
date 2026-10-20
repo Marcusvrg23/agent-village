@@ -89,15 +89,33 @@ export function claudeToolState(name, input = {}) {
  * Parses one Claude Code transcript text. Usage per message id is taken as the max seen (lines of the same
  * message repeat the usage, sometimes partially). Never returns prompt or message content.
  */
+/** Short label for a running command: its description when Claude gave one, else the start of the command. */
+export function commandLabel(input = {}) {
+  const d = typeof input.description === 'string' ? input.description.trim() : '';
+  if (d) return d.slice(0, 60);
+  const c = String(Array.isArray(input.command) ? input.command.join(' ') : input.command ?? '').replace(/\s+/g, ' ').trim();
+  return c.length > 48 ? `${c.slice(0, 47)}…` : c;
+}
+
 export function parseClaudeTranscript(text) {
   const perMsg = new Map();
-  const out = { sessionId: null, cwd: null, model: null, lastAt: 0, lastTool: null, toolCalls: 0, ended: false, gitBranch: null };
+  const out = { sessionId: null, cwd: null, model: null, lastAt: 0, lastTool: null, toolCalls: 0, ended: false, gitBranch: null, pendingCommand: null, lastCommand: null };
+  const commands = new Map(); // tool_use_id -> running Bash call (foreground only)
   for (const j of jsonLines(text)) {
     const at = toEpochMs(j.timestamp) ?? 0;
     if (at > out.lastAt) out.lastAt = at;
     if (typeof j.sessionId === 'string') out.sessionId = j.sessionId;
     if (typeof j.cwd === 'string') out.cwd = j.cwd;
     if (typeof j.gitBranch === 'string') out.gitBranch = j.gitBranch;
+    if (j.type === 'user' && Array.isArray(j.message?.content)) {
+      for (const b of j.message.content) {
+        if (b?.type !== 'tool_result' || !commands.has(b.tool_use_id)) continue;
+        const c = commands.get(b.tool_use_id);
+        commands.delete(b.tool_use_id);
+        out.lastCommand = { ...c, ok: b.is_error !== true, doneAt: at };
+      }
+      continue;
+    }
     if (j.type !== 'assistant' || !j.message || typeof j.message !== 'object') continue;
     const m = j.message;
     if (typeof m.model === 'string' && m.model !== '<synthetic>') out.model = m.model;
@@ -114,8 +132,13 @@ export function parseClaudeTranscript(text) {
       const target = typeof b.input?.file_path === 'string' ? path.basename(b.input.file_path) : null;
       out.lastTool = { name: String(b.name ?? 'tool'), at, target, ...claudeToolState(b.name, b.input ?? {}) };
       out.ended = false;
+      if (b.name === 'Bash' && b.id && b.input?.run_in_background !== true) {
+        commands.set(b.id, { at, label: commandLabel(b.input), ...claudeToolState('Bash', b.input) });
+      }
     }
   }
+  // The newest foreground command still without a result is "running" (tests, build, deploy...).
+  for (const c of commands.values()) if (!out.pendingCommand || c.at > out.pendingCommand.at) out.pendingCommand = c;
   const usage = { input: null, cachedInput: null, cacheWrite: null, output: null, reasoning: null };
   for (const u of perMsg.values()) for (const k of Object.keys(usage)) if (u[k] !== null) usage[k] = (usage[k] ?? 0) + u[k];
   out.usage = usage;
@@ -162,13 +185,20 @@ function cachedParse(cache, file, st) {
   return parsed;
 }
 
+export const COMMAND_MAX_MS = 6 * 3600_000; // a "running" command older than this is treated as abandoned
+
 function summarize(id, p, mtimeMs, now, parentId) {
   const lastAt = Math.max(p.lastAt, 0) || mtimeMs;
-  const active = now - Math.max(lastAt, mtimeMs) < ACTIVE_WINDOW_MS && !p.ended;
+  // A long command writes nothing to the transcript while it runs: it keeps the session active on its own.
+  const pending = p.pendingCommand && now - p.pendingCommand.at < COMMAND_MAX_MS ? p.pendingCommand : null;
+  const active = (now - Math.max(lastAt, mtimeMs) < ACTIVE_WINDOW_MS && !p.ended) || Boolean(pending);
   return {
     provider: 'claude-code', id, parentId, project: p.cwd ? path.basename(p.cwd) : null, model: p.model, lastAt,
-    active, state: active ? p.lastTool?.state ?? 'working' : p.ended ? 'done' : 'idle', role: p.lastTool?.role ?? (parentId ? 'WORKER' : 'LEAD'),
+    active, state: pending ? pending.state : active ? p.lastTool?.state ?? 'working' : p.ended ? 'done' : 'idle',
+    role: pending ? pending.role : p.lastTool?.role ?? (parentId ? 'WORKER' : 'LEAD'),
     lastTool: p.lastTool ? { name: p.lastTool.name, target: p.lastTool.target } : null, toolCalls: p.toolCalls, usage: p.usage,
+    wait: pending ? { since: pending.at, label: pending.label } : null,
+    lastCommand: p.lastCommand ? { ok: p.lastCommand.ok, at: p.lastCommand.doneAt, label: p.lastCommand.label, role: p.lastCommand.role } : null,
   };
 }
 
@@ -220,10 +250,12 @@ export function statuslineDir(env = process.env, home = os.homedir()) {
 }
 
 /** Newest Claude quota snapshot among the tap files (one per Claude config dir). */
-export function readClaudeStatusline(dir = statuslineDir(), now = Date.now()) {
+export function readClaudeStatusline(dir = statuslineDir(), now = Date.now(), captureId = null) {
   let best;
+  // One file per Claude config dir, named after the folder (".claude.json", ".claude-trabalho.json").
+  const only = captureId ? `${String(captureId).replace(/[^\w.-]/g, '_')}.json` : null;
   for (const e of safeList(dir)) {
-    if (!e.isFile() || !e.name.endsWith('.json')) continue;
+    if (!e.isFile() || !e.name.endsWith('.json') || (only && e.name !== only)) continue;
     const file = path.join(dir, e.name);
     const st = safeStat(file);
     if (!st || st.size > 64 * 1024) continue;

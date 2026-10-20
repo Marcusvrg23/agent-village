@@ -5,8 +5,11 @@ import { Village, ROLE_LABELS, ROLE_ORDER } from './life-engine.js';
 import { Camera, Renderer, hitAgent, hitBuilding } from './renderer.js';
 import { WEATHERS, WEATHER_LABELS, ambientAt, effectiveHour, parseHourParam, weatherAt, weatherTint } from './ambience.js';
 import { SceneFx } from './effects.js';
-import { MissionTracker, SOURCE_LABELS, STATE_LABELS, applyAssignments, claudeClaims, codexClaims, project } from './projector.js';
-import { ControlClient, mountControlUi } from './control-ui.js';
+import { MissionTracker, SOURCE_LABELS, STATE_LABELS, applyAssignments, attentionClaims, claudeClaims, codexClaims, project, queueAtGatehouse } from './projector.js';
+import { ControlClient, accountName, mountControlUi, showPairing } from './control-ui.js';
+import { WAIT_LABELS, icon, waitPhase } from './overlays.js';
+import { Camps, projectsFrom } from './camps.js';
+import { mountSkins } from './skins.js';
 
 const TIME_MODES = ['auto', 'dia', 'noite'];
 const TIME_ICONS = { auto: '⟳', dia: '☀', noite: '☾' };
@@ -25,6 +28,7 @@ function approach(cur, target, k) {
 const ACTIVITY_LABELS = {
   IDLE: 'Parado', WALK: 'Passeando', LOOK_AROUND: 'Observando a vila', TYPE: 'Mexendo no laptop',
   READ: 'Lendo', TALK: 'Conversando', REST: 'Descansando', CELEBRATE: 'Comemorando à toa', WORK: 'Trabalhando (tarefa real)',
+  RAISE: 'Esperando sua resposta (pedido real)', KICK: 'Jogando bola', FISH: 'Pescando',
 };
 const FRAME_MS = 1000 / 30; // 30 fps cap keeps the old Intel HD GPU comfortable
 const params = new URLSearchParams(location.search);
@@ -59,8 +63,12 @@ async function boot() {
   const reduceQuery = matchMedia('(prefers-reduced-motion: reduce)');
   let village = new Village(world, { seed: Number(params.get('seed')) || 20261016, reducedMotion: reduceQuery.matches });
   const camera = new Camera(world.size[0], world.size[1]);
-  const renderer = new Renderer(canvas, { map, atlases, manifest, occluders });
-  const ui = { selected: null, selectedBuilding: null, hovered: null, hoveredBuilding: null };
+  const renderer = new Renderer(canvas, { map, atlases: { ...atlases }, manifest, occluders });
+  // Looks (🎨): recoloured copies of the base sheet or an imported atlas with the same frames; this browser only.
+  const applySkin = (role, atlas) => { renderer.atlases[role] = atlas; fx?.forgetAtlas?.(role); };
+  queueMicrotask(() => mountSkins({ baseImg: atlases.EXPLORER, roles: ROLE_ORDER, cell: manifest.cell, apply: applySkin }).catch((e) => console.warn('[village] skins', e)));
+  const ui = { selected: null, selectedBuilding: null, selectedCamp: null, hovered: null, hoveredBuilding: null };
+  const camps = new Camps(world);
   // ---- ambience: time of day + decorative local weather ----
   const hourOverride = parseHourParam(location.search);
   let quality = params.get('qualidade') === 'baixa' ? 'baixa' : 'alta';
@@ -116,14 +124,16 @@ async function boot() {
     const agent = hitAgent(village.snapshot(), wx, wy);
     ui.hovered = agent?.role ?? null;
     ui.hoveredBuilding = agent ? null : hitBuilding(world.buildings, wx, wy);
-    canvas.classList.toggle('pointer', Boolean(ui.hovered || ui.hoveredBuilding || inRect(world.fountain?.rect, wx, wy)));
+    canvas.classList.toggle('pointer', Boolean(ui.hovered || ui.hoveredBuilding || camps.hit(wx, wy) || inRect(world.fountain?.rect, wx, wy)));
   });
   canvas.addEventListener('pointerup', (e) => {
     canvas.classList.remove('dragging');
     if (drag && drag.moved <= 4) {
       const [wx, wy] = camera.toWorld(e.offsetX, e.offsetY);
       const agent = hitAgent(village.snapshot(), wx, wy);
+      const camp = agent ? null : camps.hit(wx, wy);
       if (agent) select({ role: agent.role });
+      else if (camp) select({ camp: camp.name });
       else if (inRect(world.fountain?.rect, wx, wy) && control) { select({}); control.openFountain(); }
       else {
         const b = hitBuilding(world.buildings, wx, wy);
@@ -160,11 +170,12 @@ async function boot() {
   // ---- side panel ----
   const panel = $('panel');
   $('panel-close').addEventListener('click', () => select({}));
-  function select({ role = null, building = null }) {
-    if (role || building) $('fountain').hidden = true;
+  function select({ role = null, building = null, camp = null }) {
+    if (role || building || camp) $('fountain').hidden = true;
     ui.selected = role;
     ui.selectedBuilding = building;
-    panel.hidden = !role && !building;
+    ui.selectedCamp = camp;
+    panel.hidden = !role && !building && !camp;
     renderPanel();
   }
   function row(dt, dd) {
@@ -183,10 +194,14 @@ async function boot() {
         ...row('Prédio', world.buildings[a.building].label),
         ...row('Presença', a.presence === 'verified' ? 'ACTIVE (agente real verificado)' : 'STANDBY'),
         ...row('Atividade', ACTIVITY_LABELS[a.activity] ?? a.activity),
+        ...(a.fun && (a.fun.games || a.fun.fish) ? row('Diversão (local)', `${a.fun.coins} moedas · ${a.fun.games} partidas · ${a.fun.fish} peixes`) : []),
         ...(a.task ? [
           ...row('Fonte', SOURCE_LABELS[a.task.source] ?? a.task.source ?? '—'),
           ...row('Estado real', STATE_LABELS[a.task.state] ?? a.task.state),
           ...row('Agente', a.task.agentId ? shortId(a.task.agentId) : '—'),
+          ...(a.task.account ? row('Conta', a.task.account) : []),
+          ...(a.task.needsYou ? row('Precisa de você', 'sim — responda no cartão ✋ ou no terminal') : []),
+          ...(a.task.wait ? row('Esperando', `${a.task.waitText ?? a.task.wait.label} (${WAIT_LABELS[a.task.waitPhase] ?? 'aguardando'})`) : []),
           ...row('Missão', a.task.missionId ?? '—'),
           ...row('Tarefa', a.task.label),
         ] : row('Agente real', 'nenhum')),
@@ -194,6 +209,17 @@ async function boot() {
       $('panel-note').textContent = a.task
         ? 'Estado derivado de evento real (rollout do Codex, transcrição do Claude Code ou missão aprovada). Nenhum conteúdo de prompt é exibido.'
         : 'Vida ociosa simulada localmente. Não representa trabalho real; o avatar fica ACTIVE só quando um agente real ocupa este papel.';
+    } else if (ui.selectedCamp) {
+      const c = camps.list().find((x) => x.name === ui.selectedCamp);
+      if (!c) { select({}); return; }
+      $('panel-kicker').textContent = 'Acampamento do projeto';
+      $('panel-title').textContent = c.name;
+      body.replaceChildren(
+        ...row('Situação', c.foldAt ? 'desmontando' : c.lit ? 'luzes acesas (agentes trabalhando)' : 'luzes apagadas (sem atividade agora)'),
+        ...row('Agentes ativos', String(c.agents)),
+        ...row('Fontes', (c.sources ?? []).join(', ') || '—'),
+      );
+      $('panel-note').textContent = 'Uma barraca por projeto com sessão real (pasta da sessão). Some sozinha alguns minutos depois que a última sessão termina.';
     } else if (ui.selectedBuilding) {
       const b = world.buildings[ui.selectedBuilding];
       $('panel-kicker').textContent = 'Prédio';
@@ -233,6 +259,17 @@ async function boot() {
     renderer.draw(camera, village.snapshot(), {
       selected: ui.selected, hovered: ui.hovered, hoveredBuilding: ui.hoveredBuilding, buildings: world.buildings,
       fx: effectsOff ? null : fx, ambient: env.amb, weather: env.weather, now,
+      extras: [
+        ...camps.drawables(Date.now(), env.amb.night).map((d) => ({ ...d, label: d.camp.name, lit: d.camp.lit })),
+        // futebol: the ball (depth-sorted by the ground point under it, with a small shadow)
+        ...village.props().map((b) => ({ y: b.ground ?? b.y, draw: (ctx) => {
+          ctx.fillStyle = 'rgba(8,10,20,0.35)';
+          ctx.fillRect(Math.round(b.x) - 4, Math.round(b.ground ?? b.y) - 1, 9, 3);
+          const img = icon('ball');
+          if (img) ctx.drawImage(img, Math.round(b.x) - 6, Math.round(b.y) - 12, img.width * 2, img.height * 2);
+        } })),
+      ],
+      reduced: motionBtn.getAttribute('aria-pressed') === 'true', wall: Date.now(),
     });
     stats.renderMs += performance.now() - t0;
     stats.frames += 1;
@@ -255,7 +292,7 @@ async function boot() {
       if (debug) perf.textContent = `${stats.fps} fps · render ${stats.avgMs.toFixed(2)} ms/quadro · efeitos ${quality} · partículas ${fx.particles.n}`;
       stats.frames = 0; stats.renderMs = 0; stats.since = now;
     }
-    if (++panelTick % 10 === 0 && ui.selected) renderPanel();
+    if (++panelTick % 10 === 0 && (ui.selected || ui.selectedCamp)) renderPanel();
   }
   document.addEventListener('visibilitychange', () => { last = performance.now(); });
 
@@ -266,46 +303,72 @@ async function boot() {
   let control = null;
   let room = null;
   let claudeSessions = [];
+  let attention = [];
+  let lastState = null;
   try {
-    control = mountControlUi({ client, onFountainState: (st) => { elixir = st; fx.setElixir(st); } });
+    control = mountControlUi({ client, onFountainState: (st) => { elixir = st; fx.setElixir(st); }, onAttention: (items) => { attention = items; projectTick(); } });
   } catch (error) {
     console.warn('[village] painel de controle indisponível', error);
   }
+  client.addEventListener('pair', () => { $('loading').hidden = true; showPairing(); });
   client.addEventListener('village', (e) => {
     tracker.push(e.detail);
     if (e.detail?.type === 'provider.reset_verified') fx.refillBurst();
   });
+  let opsRoomStarted = false;
   client.addEventListener('state', (e) => {
+    lastState = e.detail;
     tracker.sync(e.detail.running);
     claudeSessions = e.detail.observed?.claude ?? [];
     paintRuntime(e.detail);
+    // Codex agents keep coming from the original Ops Room watcher (read-only rollouts; computer only).
+    if (!opsRoomStarted && !client.lan) {
+      opsRoomStarted = true;
+      try {
+        const opsRoom = new EventSource('/events');
+        opsRoom.addEventListener('snapshot', (ev) => { try { room = JSON.parse(ev.data).room ?? null; } catch { /* ignore malformed */ } });
+      } catch { /* EventSource unavailable */ }
+    }
   });
   client.addEventListener('unavailable', () => { $('runtime').textContent = 'Runtime: plano de controle indisponível'; });
   client.start();
-  // Codex agents keep coming from the original Ops Room watcher (read-only rollouts).
-  try {
-    const opsRoom = new EventSource('/events');
-    opsRoom.addEventListener('snapshot', (e) => { try { room = JSON.parse(e.data).room ?? null; } catch { /* ignore malformed */ } });
-  } catch { /* EventSource unavailable */ }
   function paintRuntime(state) {
     const badge = $('runtime');
-    const ok = (id) => state.adapters?.[id]?.status === 'connected';
-    const names = [ok('codex') && 'Codex', ok('claude-code') && 'Claude Code'].filter(Boolean);
-    badge.textContent = `Runtime: ${names.length ? names.join(' + ') : 'nenhum verificado'}${state.control ? ' · execução ligada' : ' · só rascunho'}`;
-    badge.title = ['claude-code', 'codex'].map((id) => `${id}: ${state.adapters?.[id]?.billing?.reason ?? 'verificando'}`).join('\n');
+    const keys = state.accounts?.length ? state.accounts.map((a) => a.key) : ['claude-code', 'codex'];
+    const names = keys.filter((id) => state.adapters?.[id]?.status === 'connected').map((id) => accountName(state, id));
+    badge.textContent = `Runtime: ${names.length ? names.join(' + ') : 'nenhum verificado'}${client.lan ? ' · celular' : state.control ? ' · execução ligada' : ' · só rascunho'}`;
+    badge.title = keys.map((id) => `${accountName(state, id)}: ${state.adapters?.[id]?.billing?.reason ?? 'verificando'}`).join('\n');
   }
   const BUILDING_OF = Object.fromEntries(Object.entries(world.buildings).filter(([, b]) => b.role).map(([id, b]) => [b.role, id]));
+  const celebrated = new Map(); // role -> outcome.until already celebrated (confetti once per real result)
   function projectTick() {
     const now = Date.now();
-    const claims = [...tracker.claims(), ...codexClaims(room, now), ...claudeClaims(claudeSessions, now)];
-    const assignments = project(claims);
+    const claims = [...tracker.claims(), ...codexClaims(room, now), ...claudeClaims(claudeSessions, now), ...attentionClaims(attention, claudeSessions)];
+    const assignments = queueAtGatehouse(project(claims), { keeper: world.attention?.keeper ?? 'RELEASE_GATE', queue: world.attention?.queue ?? [] });
     applyAssignments(village, assignments, ROLE_ORDER);
-    for (const role of ROLE_ORDER) if (BUILDING_OF[role]) fx.setBuildingActivity(BUILDING_OF[role], assignments.has(role) ? 1 : 0);
+    camps.update(projectsFrom({ claudeSessions, missions: lastState?.missions ?? [], room }, now), now);
+    for (const role of ROLE_ORDER) {
+      if (BUILDING_OF[role]) fx.setBuildingActivity(BUILDING_OF[role], assignments.has(role) && !assignments.get(role).needsYou ? 1 : 0);
+      const a = village.agent(role);
+      const t = a?.task;
+      if (!t) continue;
+      // Pose from REAL timing: celebrate / rain cloud right after a command, popcorn → arms → cobwebs → nap while it runs.
+      if (t.outcome && t.outcome.until > now) {
+        t.pose = t.outcome.ok ? 'celebrate' : 'sad';
+        if (t.outcome.ok && celebrated.get(role) !== t.outcome.until) { celebrated.set(role, t.outcome.until); fx.confetti(a.x, a.y - 44); }
+      } else if (t.wait) {
+        const phase = waitPhase(t.wait.since, now);
+        t.pose = phase === 'sleep' ? 'sleep' : 'watch';
+        const min = Math.floor((now - t.wait.since) / 60_000);
+        t.waitText = `${t.wait.label || 'comando'} · ${min < 1 ? 'agora' : `${min} min`}`;
+        t.waitPhase = phase;
+      } else t.pose = null;
+    }
   }
   setInterval(projectTick, 1000);
   $('loading').hidden = true;
   requestAnimationFrame(frame);
-  if (debug) window.__village = { get village() { return village; }, get fx() { return fx; }, camera, stats, world, env, tracker, client, projectTick };
+  if (debug) window.__village = { camps, get village() { return village; }, get fx() { return fx; }, camera, stats, world, env, tracker, client, projectTick, get attention() { return attention; }, get state() { return lastState; } };
 }
 
 boot().catch((error) => {

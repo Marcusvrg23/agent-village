@@ -1,0 +1,32 @@
+# Agent Village no Docker (macOS, Linux ou Windows com Docker Desktop):
+#
+#   docker compose up -d          → abra http://127.0.0.1:4173/village/
+#   docker compose down           → para
+#
+# Só pastas de dados entram no container, SOMENTE LEITURA: as transcrições do Claude Code (<conta>/projects) e os
+# rollouts do Codex (<CODEX_HOME>/sessions). Nunca a pasta inteira da conta (lá ficam credenciais e configurações).
+# A pasta ~/.agent-village (dados da própria vila: cota capturada pelo status line, histórico e missões) é montada
+# com escrita. No Windows, defina antes: set VILLAGE_HOST_HOME=%USERPROFILE%
+name: agent-village
+
+services:
+  village:
+    build: .
+    image: agent-village:local
+    container_name: agent-village
+    restart: unless-stopped
+    ports:
+      # Publicada só na interface local do host: as transcrições são sensíveis.
+      - "127.0.0.1:${VILLAGE_PORT:-4173}:4173"
+    volumes:
+      - "${VILLAGE_CLAUDE_DIR:-${VILLAGE_HOST_HOME:-${HOME}}/.claude}/projects:/claude/projects:ro"
+      - "${VILLAGE_CODEX_DIR:-${VILLAGE_HOST_HOME:-${HOME}}/.codex}/sessions:/codex/sessions:ro"
+      - "${VILLAGE_HOST_HOME:-${HOME}}/.agent-village:/data"
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    init: true

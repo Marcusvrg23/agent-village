@@ -172,6 +172,46 @@ button.primary { background: rgba(255, 226, 140, 0.25) !important; border-color:
 .mission .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .mission p { margin: 4px 0; }
 
+.attention-stack {
+  position: absolute; z-index: 5; right: 12px; bottom: 12px; width: min(380px, calc(100vw - 24px));
+  display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - 90px); overflow: auto;
+}
+.attention-stack[hidden] { display: none; }
+.attention-card {
+  background: rgba(36, 22, 6, 0.96); border: 2px solid #ffd84d; border-radius: 12px; padding: 10px 12px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+}
+.attention-card.kind-notice { border-color: #8fc8ff; background: rgba(12, 24, 48, 0.96); }
+.attention-card .kicker { margin: 0; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gold); }
+.attention-card h3 { margin: 4px 0 6px; font-size: 15px; }
+.attention-card code.detail {
+  display: block; white-space: pre-wrap; word-break: break-all; font: 12px/1.35 ui-monospace, SFMono-Regular, Consolas, monospace;
+  background: rgba(0, 0, 0, 0.4); border-radius: 6px; padding: 6px 8px; max-height: 120px; overflow: auto;
+}
+.attention-card .reason { width: 100%; margin-top: 6px; font: inherit; font-size: 12px; color: var(--ink); background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 6px; padding: 5px 8px; }
+.attention-card button {
+  font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 8px; cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.08); color: var(--ink);
+}
+button.danger { border-color: #ff8f7a !important; color: #ffd0c6; }
+.attention-btn.alert { background: rgba(255, 216, 77, 0.35) !important; border-color: #ffd84d !important; animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 4px rgba(255, 216, 77, 0.25); } }
+@media (prefers-reduced-motion: reduce) { .attention-btn.alert { animation: none; } }
+.pair-code { font: 700 30px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: 0.12em; color: var(--gold); margin: 4px 0; }
+.urls { margin: 4px 0; padding-left: 16px; font-size: 13px; }
+.urls code { word-break: break-all; }
+.pairing { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; background: rgba(6, 10, 26, 0.85); padding: 16px; }
+.pairing[hidden] { display: none; }
+.panel-box { background: var(--glass); border: 1px solid var(--edge); border-radius: 12px; padding: 16px; width: min(360px, 100%); display: grid; gap: 8px; }
+.panel-box input { font: 700 22px ui-monospace, monospace; letter-spacing: 0.12em; text-align: center; text-transform: uppercase; padding: 8px; border-radius: 8px; border: 1px solid var(--edge); background: rgba(0, 0, 0, 0.35); color: var(--ink); }
+.panel-box button { font: inherit; padding: 10px; border-radius: 8px; border: 1px solid var(--gold); color: var(--ink); cursor: pointer; }
+body.phone .desktop-only, body.phone #open-missions { display: none; }
+.skin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.skin-card { border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; padding: 6px; display: grid; gap: 4px; font-size: 12px; }
+.skin-card canvas { width: 80px; height: 100px; image-rendering: pixelated; justify-self: center; }
+.skin-card select, .skin-card input[type="range"] { width: 100%; font: inherit; font-size: 12px; }
+.panel.skins { width: min(560px, calc(100vw - 24px)); max-height: calc(100vh - 90px); overflow: auto; }
+
 .loading {
   position: absolute;
   inset: 0;
@@ -186,6 +226,11 @@ button.primary { background: rgba(255, 226, 140, 0.25) !important; border-color:
 .loading.error { color: #ffb4a8; }
 
 @media (max-width: 640px) {
+  .top-right { left: 12px; right: 12px; top: 74px; flex-wrap: wrap; justify-content: flex-end; }
+  .bottom-left { display: none; }
+  .top-left { right: 12px; }
+  .top-right button, .top-right .link { min-width: 30px; height: 30px; font-size: 14px; }
+  .attention-stack { bottom: 8px; right: 8px; width: calc(100vw - 16px); }
   .top-left h1 { font-size: 15px; }
   .bottom-left { font-size: 11px; right: 12px; }
   .panel { top: auto; bottom: 12px; }

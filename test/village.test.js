@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildGraph, distanceToNetwork, pathLength, shortestPath } from '../public/village/pathfinding.js';
-import { AMBIENT_PHRASES, LIFE, PERSONALITY, ROLE_ORDER, Village } from '../public/village/life-engine.js';
+import { AMBIENT_PHRASES, LIFE, PERSONALITY, ROLE_ORDER, SOCIAL_PHRASES, Village } from '../public/village/life-engine.js';
 import { hitAgent, hitBuilding } from '../public/village/renderer.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -113,7 +113,7 @@ test('Idle life is not synchronized: avatars start their first walk at different
 
 test('Ambient bubbles: only local phrases, marked ambient, at most two at a time', () => {
   const v = new Village(world);
-  const allowed = new Set([...AMBIENT_PHRASES, 'Zzz', '♪']);
+  const allowed = new Set([...AMBIENT_PHRASES, ...SOCIAL_PHRASES, 'Zzz', '♪']);
   let seen = 0;
   run(v, 90_000, (snap) => {
     const bubbles = snap.filter((s) => s.bubble);

@@ -114,7 +114,8 @@ export class QuotaStore {
 
   /** Returns true when the stored data changed. Detects a verified reset (refill) on the way in. */
   set(snap, now = Date.now()) {
-    if (!snap || !PROVIDERS.includes(snap.provider)) return false;
+    // Keys are adapter ids: "claude-code", "codex" or "<runtime>@<account>" for extra accounts.
+    if (!snap || !PROVIDERS.includes(String(snap.provider).split('@')[0])) return false;
     const prev = this.latest.get(snap.provider);
     if (prev && snap.fetchedAt < prev.fetchedAt) return false;
     const before = this.view(snap.provider, now);
@@ -142,8 +143,8 @@ export class QuotaStore {
     return v;
   }
 
-  publicView(now = Date.now()) {
-    return Object.fromEntries(PROVIDERS.map((p) => {
+  publicView(now = Date.now(), keys = PROVIDERS) {
+    return Object.fromEntries(keys.map((p) => {
       const v = this.view(p, now);
       return [p, {
         state: v.state, quality: v.quality, stale: v.stale, refilledAt: v.refilledAt, nextReset: v.nextReset,

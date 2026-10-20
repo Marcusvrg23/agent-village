@@ -8,8 +8,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveCommand, runOnce, startStream, subscriptionEnv } from './proc.js';
 import { parseCodexAppServerLimits } from './quota.js';
-import { claudeToolState } from './sources.js';
+import { claudeToolState, commandLabel } from './sources.js';
 import { usageFromClaude, usageFromCodex } from './ledger.js';
+import { accountEnv } from './accounts.js';
 
 const VERSION = (() => {
   try { return JSON.parse(readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'package.json'), 'utf8')).version; } catch { return '0.0.0'; }
@@ -46,17 +47,20 @@ export function claudeBillingFrom(status, exitCode) {
 }
 
 export class ClaudeCodeAdapter {
-  constructor({ env = process.env, command = 'claude', hasQuotaCapture = () => false } = {}) {
-    this.id = 'claude-code';
-    this.label = 'Claude Code';
+  constructor({ env = process.env, command = 'claude', hasQuotaCapture = () => false, account = null } = {}) {
+    this.runtime = 'claude-code';
+    this.account = account;
+    this.id = account?.key ?? 'claude-code';
+    this.label = account && !account.isDefault ? `Claude Code (${account.label})` : 'Claude Code';
     this.baseEnv = env;
     this.command = command;
     this.hasQuotaCapture = hasQuotaCapture;
-    this.env = subscriptionEnv(env, ALL_API_VARS);
+    // Only CLAUDE_CONFIG_DIR changes per account (never for the default one); API variables are always removed.
+    this.env = accountEnv(subscriptionEnv(env, ALL_API_VARS), account);
   }
 
   async probe() {
-    const out = { id: this.id, label: this.label, installed: false, version: null, status: 'unavailable', billing: { mode: 'unknown', verified: false },
+    const out = { id: this.id, runtime: this.runtime, account: this.account ? { id: this.account.id, label: this.account.label, isDefault: this.account.isDefault } : null, label: this.label, installed: false, version: null, status: 'unavailable', billing: { mode: 'unknown', verified: false },
       capabilities: caps([]), supportedModels: 'unknown', strippedVars: presentVars(this.baseEnv, CLAUDE_API_VARS), reasons: [], probedAt: Date.now() };
     const bin = resolveCommand(this.command, { env: this.baseEnv });
     if (!bin) { out.reasons.push('CLI `claude` não encontrada no PATH.'); return out; }
@@ -87,6 +91,7 @@ export class ClaudeCodeAdapter {
     if (resumeSession && /^[\w-]+$/.test(resumeSession)) args.push('--resume', resumeSession);
     if (name && /^[\w.-]+$/.test(name)) args.push('--name', name);
     const result = { ok: false, sessionId: resumeSession, usage: null, perMsg: new Map(), denials: 0, error: null, model: null, isError: false };
+    const commands = new Map(); // Bash tool_use_id -> running command (for the waiting animations)
     const handle = startStream(bin, args, {
       cwd, env: this.env, input: prompt,
       onEvent: (e) => {
@@ -98,7 +103,7 @@ export class ClaudeCodeAdapter {
             result.error = `Fonte de chave de API detectada (${e.apiKeySource}): execução interrompida pelo firewall.`;
             handle.stop();
           }
-          onEvent({ type: 'session', provider: this.id, sessionId: result.sessionId, model: result.model });
+          onEvent({ type: 'session', provider: this.runtime, account: this.account?.id ?? null, sessionId: result.sessionId, model: result.model });
         } else if (e.type === 'assistant' && e.message) {
           const m = e.message;
           if (m.id && m.usage) result.perMsg.set(m.id, usageFromClaude(m.usage));
@@ -106,12 +111,22 @@ export class ClaudeCodeAdapter {
             if (b?.type !== 'tool_use') continue;
             const st = claudeToolState(b.name, b.input ?? {});
             const target = typeof b.input?.file_path === 'string' ? path.basename(b.input.file_path) : null;
-            onEvent({ type: 'tool', provider: this.id, sessionId: result.sessionId, agentId: e.parent_tool_use_id ? `${result.sessionId}:${e.parent_tool_use_id}` : result.sessionId,
-              parentId: e.parent_tool_use_id ? result.sessionId : null, tool: b.name, target, ...st });
+            const agentId = e.parent_tool_use_id ? `${result.sessionId}:${e.parent_tool_use_id}` : result.sessionId;
+            const command = b.name === 'Bash' && b.input?.run_in_background !== true ? commandLabel(b.input) : null;
+            if (command && b.id) commands.set(b.id, { agentId, ...st, label: command });
+            onEvent({ type: 'tool', provider: this.runtime, account: this.account?.id ?? null, sessionId: result.sessionId, agentId,
+              parentId: e.parent_tool_use_id ? result.sessionId : null, tool: b.name, target, command, ...st });
+          }
+        } else if (e.type === 'user' && Array.isArray(e.message?.content)) {
+          for (const b of e.message.content) {
+            if (b?.type !== 'tool_result' || !commands.has(b.tool_use_id)) continue;
+            const c = commands.get(b.tool_use_id);
+            commands.delete(b.tool_use_id);
+            onEvent({ type: 'command_done', provider: this.runtime, account: this.account?.id ?? null, sessionId: result.sessionId, ok: b.is_error !== true, ...c });
           }
         } else if (e.type === 'system' && e.subtype === 'permission_denied') {
           result.denials += 1;
-          onEvent({ type: 'permission_denied', provider: this.id, tool: e.tool_name ?? null });
+          onEvent({ type: 'permission_denied', provider: this.runtime, account: this.account?.id ?? null, tool: e.tool_name ?? null });
         } else if (e.type === 'result') {
           result.sessionId = e.session_id ?? result.sessionId;
           result.isError = Boolean(e.is_error);
@@ -119,7 +134,7 @@ export class ClaudeCodeAdapter {
           result.usage = e.usage ? usageFromClaude(e.usage) : null;
           result.denials = Array.isArray(e.permission_denials) ? e.permission_denials.length : result.denials;
           result.resultText = typeof e.result === 'string' ? e.result.slice(0, 4_000) : null;
-          onEvent({ type: 'result', provider: this.id, ok: result.ok, sessionId: result.sessionId });
+          onEvent({ type: 'result', provider: this.runtime, account: this.account?.id ?? null, ok: result.ok, sessionId: result.sessionId });
         }
       },
     });
@@ -220,17 +235,19 @@ export function codexItemState(item = {}) {
 }
 
 export class CodexAdapter {
-  constructor({ env = process.env, command = 'codex', rolloutPlan = () => null } = {}) {
-    this.id = 'codex';
-    this.label = 'Codex';
+  constructor({ env = process.env, command = 'codex', rolloutPlan = () => null, account = null } = {}) {
+    this.runtime = 'codex';
+    this.account = account;
+    this.id = account?.key ?? 'codex';
+    this.label = account && !account.isDefault ? `Codex (${account.label})` : 'Codex';
     this.baseEnv = env;
     this.command = command;
     this.rolloutPlan = rolloutPlan;
-    this.env = subscriptionEnv(env, ALL_API_VARS);
+    this.env = accountEnv(subscriptionEnv(env, ALL_API_VARS), account);
   }
 
   async probe() {
-    const out = { id: this.id, label: this.label, installed: false, version: null, status: 'unavailable', billing: { mode: 'unknown', verified: false },
+    const out = { id: this.id, runtime: this.runtime, account: this.account ? { id: this.account.id, label: this.account.label, isDefault: this.account.isDefault } : null, label: this.label, installed: false, version: null, status: 'unavailable', billing: { mode: 'unknown', verified: false },
       capabilities: caps([]), supportedModels: 'unknown', strippedVars: presentVars(this.baseEnv, CODEX_API_VARS), reasons: [], probedAt: Date.now() };
     const bin = resolveCommand(this.command, { env: this.baseEnv });
     if (!bin) { out.reasons.push('CLI `codex` não encontrada no PATH.'); return out; }
@@ -276,10 +293,18 @@ export class CodexAdapter {
       onEvent: (e) => {
         if (e.type === 'thread.started') {
           result.sessionId = e.thread_id ?? null;
-          onEvent({ type: 'session', provider: this.id, sessionId: result.sessionId });
+          onEvent({ type: 'session', provider: this.runtime, account: this.account?.id ?? null, sessionId: result.sessionId });
         } else if (e.type === 'item.started' || e.type === 'item.completed') {
           const st = codexItemState(e.item);
-          if (st && e.type === 'item.started') onEvent({ type: 'tool', provider: this.id, sessionId: result.sessionId, agentId: result.sessionId, tool: e.item.type, target: null, ...st });
+          const isCmd = e.item?.type === 'command_execution';
+          if (st && e.type === 'item.started') {
+            onEvent({ type: 'tool', provider: this.runtime, account: this.account?.id ?? null, sessionId: result.sessionId, agentId: result.sessionId, tool: e.item.type, target: null,
+              command: isCmd ? commandLabel({ command: e.item.command }) : null, ...st });
+          } else if (st && isCmd && e.type === 'item.completed') {
+            const ok = typeof e.item.exit_code === 'number' ? e.item.exit_code === 0 : e.item.status !== 'failed';
+            onEvent({ type: 'command_done', provider: this.runtime, account: this.account?.id ?? null, sessionId: result.sessionId, agentId: result.sessionId, ok,
+              label: commandLabel({ command: e.item.command }), ...st });
+          }
         } else if (e.type === 'turn.completed') {
           result.turns += 1;
           result.usage = e.usage ? usageFromCodex(e.usage) : result.usage;
@@ -296,7 +321,7 @@ export class CodexAdapter {
       if (error && !result.error) result.error = error;
       if (code !== 0 && !result.error) result.error = `Codex saiu com código ${code}.`;
       if (result.error) result.ok = false;
-      onEvent({ type: 'result', provider: this.id, ok: result.ok, sessionId: result.sessionId });
+      onEvent({ type: 'result', provider: this.runtime, account: this.account?.id ?? null, ok: result.ok, sessionId: result.sessionId });
       return result;
     });
     return { stop: () => handle.stop(), done };

@@ -22,7 +22,7 @@ async function readStdin() {
 
 function log(extra = {}) {
   if (!process.env.FAKE_LOG) return;
-  appendFileSync(process.env.FAKE_LOG, `${JSON.stringify({ cli, args, apiVars: API_VARS.filter((k) => process.env[k]), ...extra })}\n`);
+  appendFileSync(process.env.FAKE_LOG, `${JSON.stringify({ cli, args, apiVars: API_VARS.filter((k) => process.env[k]), configDir: process.env.CLAUDE_CONFIG_DIR ?? null, codexHome: process.env.CODEX_HOME ?? null, ...extra })}\n`);
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

@@ -29,19 +29,24 @@ export function settingsPath(env = process.env, home = os.homedir()) {
   return path.join(dir, 'settings.json');
 }
 
+// Status line and Codex hooks run through a shell; on Windows that can be PowerShell, where a quoted
+// "C:\\Program Files\\nodejs\\node.exe" is a string, not a command. Bare `node` (on PATH) works in every shell.
+export const shellNode = (platform = process.platform) => (platform === 'win32' ? 'node' : process.execPath);
 const quote = (p) => (/[\s"'&()]/.test(p) ? `"${p.replace(/"/g, '\\"')}"` : p);
 
 /** Pure planner (tested): returns {action, before, after} for a settings object. */
-export function planStatusline(settings, action, nodeBin = process.execPath, tap = TAP) {
+export function planStatusline(settings, action, nodeBin = shellNode(), tap = TAP) {
   const s = settings && typeof settings === 'object' ? structuredClone(settings) : {};
   const cur = s.statusLine && typeof s.statusLine === 'object' ? s.statusLine : null;
   const installed = Boolean(cur?.command?.includes(MARK));
   if (action === 'status') return { action, installed, current: cur };
   if (action === 'install') {
-    if (installed) return { action, changed: false, reason: 'já instalado', before: s, after: s };
-    const original = cur?.type === 'command' && typeof cur.command === 'string' ? cur.command : '';
-    const command = `${quote(nodeBin)} ${quote(tap)}${original ? ` -- ${original}` : ''}`;
-    const after = { ...s, statusLine: { ...(cur ?? {}), type: 'command', command } };
+    // Reinstall updates an older tap command in place (e.g. absolute node path -> bare `node` on Windows).
+    let original = cur?.type === 'command' && typeof cur.command === 'string' ? cur.command : '';
+    if (installed) { const i = original.indexOf(' -- '); original = i >= 0 ? original.slice(i + 4) : ''; }
+    const wanted = `${quote(nodeBin)} ${quote(tap)}${original ? ` -- ${original}` : ''}`;
+    if (installed && cur.command === wanted) return { action, changed: false, reason: 'já instalado', before: s, after: s };
+    const after = { ...s, statusLine: { ...(cur ?? {}), type: 'command', command: wanted } };
     return { action, changed: true, before: s, after };
   }
   if (action === 'uninstall') {
@@ -92,7 +97,7 @@ export function planClaudeHooks(settings, action, nodeBin = process.execPath, sc
 }
 
 /** Codex <CODEX_HOME>/hooks.json (pure, tested). Appended at the END of the list: other apps keep their trust. */
-export function planCodexHooks(file, action, nodeBin = process.execPath, script = HOOK) {
+export function planCodexHooks(file, action, nodeBin = shellNode(), script = HOOK) {
   const f = file && typeof file === 'object' ? structuredClone(file) : {};
   const installed = Object.values(f.hooks ?? {}).some((groups) => Array.isArray(groups) && groups.some(groupIsOurs));
   if (action === 'status') return { action, installed };
@@ -180,4 +185,5 @@ function main() {
   if (pending && !yes) console.log('\nPrévia apenas. Rode de novo com --yes para aplicar (um backup é criado antes de cada arquivo).');
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();
+const sameFile = (a, b) => (process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b);
+if (process.argv[1] && sameFile(path.resolve(process.argv[1]), fileURLToPath(import.meta.url))) main();

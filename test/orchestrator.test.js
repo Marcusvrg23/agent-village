@@ -169,7 +169,7 @@ test('Status line tap: stores only the quota windows; setup plans install/uninst
   assert.equal(inst.after.theme, 'dark');
   const un = planStatusline(inst.after, 'uninstall');
   assert.equal(un.after.statusLine.command, 'bash ~/.claude/sl.sh');
-  assert.equal(planStatusline(inst.after, 'install').changed, false);
+  assert.equal(planStatusline(inst.after, 'install', '/usr/bin/node', '/opt/av/scripts/claude-statusline-tap.mjs').changed, false);
 });
 
 // ------------------------------------------------------------------ firewall + router

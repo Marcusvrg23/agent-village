@@ -181,6 +181,16 @@ test('Phone pairing: codes rotate after use and lock after repeated wrong tries'
   assert.equal(lan.devices().length, 0);
 });
 
+test('Setup: the status line uses bare node on Windows and a reinstall updates an old tap command in place', async () => {
+  const { planStatusline, shellNode } = await import('../scripts/village-setup.mjs');
+  assert.equal(shellNode('win32'), 'node');
+  const old = { statusLine: { type: 'command', command: '"C:\\Program Files\\nodejs\\node.exe" C:\\av\\scripts\\claude-statusline-tap.mjs -- bash ~/sl.sh' } };
+  const re = planStatusline(old, 'install', 'node', 'C:\\av\\scripts\\claude-statusline-tap.mjs');
+  assert.equal(re.changed, true);
+  assert.equal(re.after.statusLine.command, 'node C:\\av\\scripts\\claude-statusline-tap.mjs -- bash ~/sl.sh');
+  assert.equal(planStatusline(re.after, 'install', 'node', 'C:\\av\\scripts\\claude-statusline-tap.mjs').changed, false);
+});
+
 test('Setup: hooks are added in exec form with onFailure continue, never duplicated, and removed cleanly', () => {
   const before = { hooks: { PermissionRequest: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'other-app' }] }] }, theme: 'dark' };
   const inst = planClaudeHooks(before, 'install', '/usr/bin/node', '/opt/av/scripts/village-hook.mjs');

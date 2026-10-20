@@ -74,7 +74,13 @@ export class ControlClient extends EventTarget {
   }
 
   async post(path, body = {}) {
-    const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-village-token': this.token ?? '' }, body: JSON.stringify(body) });
+    let r;
+    try {
+      r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-village-token': this.token ?? '' }, body: JSON.stringify(body) });
+    } catch {
+      // The page is still open but the village server is gone (terminal closed, Ctrl+C, the agent that started it ended).
+      throw new Error('A vila não está respondendo: o servidor foi fechado. Abra de novo com npm run village no terminal e recarregue esta página (F5).');
+    }
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(data.error ?? `Erro ${r.status}`);
     return data;

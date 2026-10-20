@@ -63,6 +63,13 @@ export class ContextVault {
     return readdirSync(this.missionsDir).filter((n) => SAFE_ID.test(n)).sort().reverse().slice(0, limit).map((id) => this.load(id)).filter(Boolean);
   }
 
+  /** Read a mission-local artifact without accepting arbitrary paths from callers. */
+  readArtifact(id, name) {
+    if (name !== 'result.md' && name !== 'release.md') throw new Error('Artefato não permitido.');
+    const file = path.join(this.dir(id), name);
+    return existsSync(file) ? readFileSync(file, 'utf8') : null;
+  }
+
   /** Measured acceptance per provider (for routing). Only gate outcomes count, never guesses. */
   history() {
     const out = {};

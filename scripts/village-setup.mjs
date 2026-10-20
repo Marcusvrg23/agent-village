@@ -29,7 +29,6 @@ export function settingsPath(env = process.env, home = os.homedir()) {
   return path.join(dir, 'settings.json');
 }
 
-const quote = (p) => (/[\s"'&()]/.test(p) ? `"${p.replace(/"/g, '\\"')}"` : p);
 // Claude Code runs the status line through Git Bash on Windows, where an unquoted C:\Users\... loses its
 // backslashes. Forward slashes inside quotes read the same in bash, cmd and PowerShell, and Node accepts them.
 const shellPath = (p) => `"${p.replace(/\\/g, '/').replace(/"/g, '\\"')}"`;
@@ -107,7 +106,7 @@ export function planCodexHooks(file, action, nodeBin = process.execPath, script 
     return { action, changed: true, before: f, after: { ...f, hooks: withoutOurs(f.hooks) } };
   }
   if (action !== 'install') throw new Error(`Ação desconhecida: ${action}`);
-  const command = `${quote(nodeBin)} ${quote(script)} permission codex`;
+  const command = `${shellPath(nodeBin)} ${shellPath(script)} permission codex`;
   const current = (f.hooks?.PermissionRequest ?? []).find(groupIsOurs);
   if (current && current.hooks.some((h) => h.command === command && h.timeout === CODEX_PERMISSION_TIMEOUT_S)) return { action, changed: false, reason: 'já instalado', before: f, after: f };
   const group = { hooks: [{ type: 'command', command, timeout: CODEX_PERMISSION_TIMEOUT_S, statusMessage: STATUS_MESSAGE }] };
@@ -186,4 +185,5 @@ function main() {
   if (pending && !yes) console.log('\nPrévia apenas. Rode de novo com --yes para aplicar (um backup é criado antes de cada arquivo).');
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();
+const sameFile = (a, b) => (process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b);
+if (process.argv[1] && sameFile(path.resolve(process.argv[1]), fileURLToPath(import.meta.url))) main();

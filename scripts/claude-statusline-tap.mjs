@@ -62,18 +62,51 @@ export function writeCapture(rec, dir) {
   return file;
 }
 
+/**
+ * Heartbeat of the tap (diagnostics only): when it last ran and whether Claude Code sent quota data.
+ * Written as <config-dir-name>.tap (not .json) so it is never mistaken for a quota capture.
+ */
+export function writeTapStatus(input, dir, now = Date.now(), env = process.env, home = os.homedir()) {
+  const id = path.basename(configDirOf(input, env, home)).replace(/[^\w.-]/g, '_');
+  mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, `${id}.tap`);
+  const rec = { seenAt: now, rateLimits: Boolean(captureRecord(input, now, env, home)) };
+  try {
+    const prev = JSON.parse(readFileSync(file, 'utf8'));
+    if (prev.rateLimits === rec.rateLimits && now - prev.seenAt < MIN_REWRITE_MS) return file;
+  } catch { /* first write */ }
+  const tmp = `${file}.${process.pid}.tmp`;
+  writeFileSync(tmp, JSON.stringify(rec));
+  renameSync(tmp, file);
+  return file;
+}
+
+/** Short status text shown when there is no other status line command (visible proof the tap runs). */
+export function statusText(input) {
+  const rec = captureRecord(input);
+  if (!rec) return '⛲ Agent Village · aguardando a cota do Claude';
+  const pct = (w) => (w ? `${Math.round(w.used_percentage)}%` : '—');
+  return `⛲ Agent Village · 5 h ${pct(rec.five_hour)} · semana ${pct(rec.seven_day)}`;
+}
+
 async function main() {
   const chunks = [];
   for await (const c of process.stdin) chunks.push(c);
   const raw = Buffer.concat(chunks);
+  let input = null;
   try {
-    const rec = captureRecord(JSON.parse(raw.toString('utf8')));
+    input = JSON.parse(raw.toString('utf8').replace(/^\uFEFF/, '')); // tolerate a BOM (Windows pipes)
     const home = (process.env.AGENT_VILLAGE_HOME ?? '').trim() || path.join(os.homedir(), '.agent-village');
+    const rec = captureRecord(input);
     if (rec) writeCapture(rec, path.join(home, 'usage'));
+    writeTapStatus(input, path.join(home, 'usage'));
   } catch { /* never break the status line */ }
   const i = process.argv.indexOf('--');
   const original = i >= 0 ? process.argv.slice(i + 1).join(' ').trim() : '';
-  if (!original) return;
+  if (!original) {
+    if (input) process.stdout.write(`${statusText(input)}\n`);
+    return;
+  }
   // The original status line command is the user's own configured command, run the way Claude Code runs it.
   const child = spawn(original, { shell: true, stdio: ['pipe', 'inherit', 'inherit'] });
   child.stdin.end(raw);
@@ -81,6 +114,7 @@ async function main() {
   child.on('error', () => process.exit(0));
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+const sameFile = (a, b) => (process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b);
+if (process.argv[1] && sameFile(path.resolve(process.argv[1]), fileURLToPath(import.meta.url))) {
   main();
 }

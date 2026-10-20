@@ -122,7 +122,13 @@ export async function run(argv = process.argv.slice(2), env = process.env, stdin
   return undefined;
 }
 
-const isMain = (() => { try { return path.resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url); } catch { return false; } })();
+const isMain = (() => {
+  try {
+    const a = path.resolve(process.argv[1] ?? '');
+    const b = fileURLToPath(import.meta.url);
+    return process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b; // drive-letter case on Windows
+  } catch { return false; }
+})();
 if (isMain) {
   const out = await run().catch(() => undefined);
   if (out) process.stdout.write(`${JSON.stringify(out)}\n`);

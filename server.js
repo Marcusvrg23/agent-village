@@ -15,7 +15,9 @@ import { mkdirSync, rmSync, writeFileSync, chmodSync } from 'node:fs';
 
 // In Docker the server listens inside the container and the port is published only on the host's 127.0.0.1
 // (docker-compose.yml). Real execution is always off there: the CLIs and their logins live on the host.
-const IN_DOCKER = process.env.VILLAGE_IN_DOCKER === '1';
+// Flags tolerate stray spaces: in cmd.exe `set X=1 && ...` stores "1 ".
+const flag = (name) => String(process.env[name] ?? '').trim() === '1';
+const IN_DOCKER = flag('VILLAGE_IN_DOCKER');
 const HOST = IN_DOCKER ? '0.0.0.0' : '127.0.0.1';
 const PORT = Number.parseInt(process.env.OPS_ROOM_PORT ?? '4173', 10);
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -261,13 +263,17 @@ async function serveStatic(requestPath, response) {
 }
 
 // Agent Village control plane: quotas, ledger, adapters, missions (see src/control-http.js).
-const orchestrator = new Orchestrator({ control: process.env.VILLAGE_CONTROL === '1' && !IN_DOCKER });
+// Real execution is ON by default (every mission still needs the operator's click in the page, edits need an
+// extra confirmation and the US$ 0 API firewall always applies). VILLAGE_CONTROL=0 starts in draft-only mode.
+// In Docker it stays off: the CLIs and their logins live on the host.
+const offFlag = (name) => String(process.env[name] ?? '').trim() === '0';
+const orchestrator = new Orchestrator({ control: !offFlag('VILLAGE_CONTROL') && !IN_DOCKER });
 // "Precisa de você": requests from the Claude Code / Codex hooks (npm run village:setup -- hooks install).
 const desk = new AttentionDesk();
 const hookToken = randomBytes(24).toString('hex');
 const HOOK_FILE = path.join(orchestrator.dataDir, 'hook.json');
 // Phone on the local network: opt-in second port (the main one stays on 127.0.0.1).
-const LAN_ON = process.env.VILLAGE_LAN === '1' && !IN_DOCKER;
+const LAN_ON = flag('VILLAGE_LAN') && !IN_DOCKER;
 const LAN_PORT = Number.parseInt(process.env.VILLAGE_LAN_PORT ?? String(PORT === 0 ? 0 : PORT + 1), 10);
 const lan = LAN_ON ? new LanPairing() : null;
 const control = createControlPlane(orchestrator, { desk, hookToken, lan, lanPort: () => lanServer?.address()?.port ?? LAN_PORT });
@@ -367,7 +373,7 @@ server.listen(PORT, HOST, () => {
   process.parentPort?.postMessage({ type: 'ready', port: actualPort });
   console.log(`[ops-room] http://${HOST}:${actualPort}`);
   console.log(`[ops-room] watching read-only: ${SESSIONS_ROOT}`);
-  console.log(`[village] execução real: ${orchestrator.control ? 'LIGADA (VILLAGE_CONTROL=1, cada missão exige aprovação)' : 'desligada (modo só rascunho)'}`);
+  console.log(`[village] execução real: ${orchestrator.control ? 'LIGADA (cada missão exige sua aprovação; VILLAGE_CONTROL=0 desliga)' : `desligada (modo só rascunho${IN_DOCKER ? ', Docker' : ', VILLAGE_CONTROL=0'})`}`);
   // Where the hooks find this server: port + secret, readable only by this user.
   try {
     mkdirSync(orchestrator.dataDir, { recursive: true });

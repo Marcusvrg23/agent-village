@@ -279,7 +279,7 @@ test('E2E: draft is free; execution needs VILLAGE_CONTROL + approval; prompt goe
   assert.equal(draft.status, 'draft');
   assert.equal(draft.preflight.canRun, false);
   assert.equal(draft.preflight.paidApiSpendAllowedUsd, 0);
-  await assert.rejects(off.approve(draft.id), /VILLAGE_CONTROL=1/);
+  await assert.rejects(off.approve(draft.id), /VILLAGE_CONTROL=0/);
   assert.equal(s.calls().filter((c) => c.args.includes('-p') || c.args[0] === 'exec').length, 0, 'nothing executed in draft-only mode');
   const probes = s.calls();
   assert.ok(probes.every((c) => c.apiVars.length === 0), 'API keys stripped from every child process');

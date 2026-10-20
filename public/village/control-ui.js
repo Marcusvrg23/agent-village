@@ -74,7 +74,13 @@ export class ControlClient extends EventTarget {
   }
 
   async post(path, body = {}) {
-    const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-village-token': this.token ?? '' }, body: JSON.stringify(body) });
+    let r;
+    try {
+      r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-village-token': this.token ?? '' }, body: JSON.stringify(body) });
+    } catch {
+      // The page is still open but the village server is gone (terminal closed, Ctrl+C, the agent that started it ended).
+      throw new Error('A vila não está respondendo: o servidor foi fechado. Abra de novo com npm run village no terminal e recarregue esta página (F5).');
+    }
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(data.error ?? `Erro ${r.status}`);
     return data;
@@ -116,7 +122,14 @@ export function mountControlUi({ client, onFountainState, onRefill, onAttention 
       const windows = Object.entries(q.windows ?? {}).map(([k, w]) => el('li', {},
         `${k === 'fiveHour' ? 'Janela de 5 h' : 'Semanal'}: ${Math.round(w.usedPercent)}% usada · reinicia ${fmtTime(w.resetsAt)}`));
       if (!windows.length && q.expired?.length) windows.push(el('li', {}, 'A janela reiniciou; aguardando o provedor informar o novo consumo.'));
-      if (!windows.length && !q.expired?.length) windows.push(el('li', {}, runtimeOf(p) === 'claude-code' ? 'Sem captura do statusline. Rode: npm run village:setup -- statusline install' : 'Sem leitura ainda: use o Codex ou atualize.'));
+      if (!windows.length && !q.expired?.length) {
+        const tap = state.claudeTap?.[p];
+        const msg = runtimeOf(p) !== 'claude-code' ? 'Sem leitura ainda: use o Codex ou atualize.'
+          : !tap ? 'O coletor do status line nunca rodou. Rode npm run village:setup -- statusline install --yes e abra o Claude Code no terminal.'
+            : !tap.rateLimits ? `O status line está rodando (${ago(tap.seenAt)}), mas o Claude Code ainda não enviou a cota. Ela só vem em contas Pro/Max, depois de uma resposta.`
+              : `O status line recebeu a cota ${ago(tap.seenAt)}; clique em Atualizar leitura.`;
+        windows.push(el('li', {}, msg));
+      }
       const tokens = state.ledger?.byProvider?.[p];
       res.push(el('section', { class: `reservoir state-${(q.state ?? 'UNKNOWN').toLowerCase()}` },
         el('div', { class: 'vial', 'aria-hidden': 'true' }, el('i', { style: `height:${level === null ? 0 : level}%` }), level === null ? el('b', {}, '?') : null),
@@ -316,7 +329,7 @@ export function mountControlUi({ client, onFountainState, onRefill, onAttention 
       actions.append(el('button', { type: 'button', onclick: () => copyPrompt(m) }, 'Copiar prompt para o Claude Code/Codex'));
       actions.append(el('p', { class: 'small' }, client.state?.control
         ? 'Execução indisponível para esta missão (veja os motivos acima).'
-        : 'Modo só rascunho: a vila não executa nada. Para permitir execução real, feche a vila e inicie com VILLAGE_CONTROL=1 (veja o README).'));
+        : 'Modo só rascunho: esta vila foi aberta com VILLAGE_CONTROL=0 (ou no Docker). Para executar, feche e abra de novo sem essa variável.'));
     }
     out.replaceChildren(dl, blockers ?? '', notes ?? '', actions);
   }

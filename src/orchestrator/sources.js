@@ -269,4 +269,12 @@ export function readClaudeStatusline(dir = statuslineDir(), now = Date.now(), ca
   return best;
 }
 
+/** Status line tap heartbeat ({seenAt, rateLimits}) for one Claude config dir, or null. */
+export function readTapStatus(dir = statuslineDir(), captureId = '.claude') {
+  try {
+    const j = JSON.parse(readFileSync(path.join(dir, `${String(captureId).replace(/[^\w.-]/g, '_')}.tap`), 'utf8'));
+    return typeof j.seenAt === 'number' ? { seenAt: j.seenAt, rateLimits: Boolean(j.rateLimits) } : null;
+  } catch { return null; }
+}
+
 export const exists = existsSync;

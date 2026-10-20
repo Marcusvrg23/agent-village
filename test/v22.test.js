@@ -325,6 +325,42 @@ test('Portability: Docker and CI files exist; the server image never enables exe
   const ci = readFileSync(path.join(root, '.github/workflows/test.yml'), 'utf8');
   for (const os of ['ubuntu-latest', 'macos-latest', 'windows-latest']) assert.ok(ci.includes(os));
   const server = readFileSync(path.join(root, 'server.js'), 'utf8');
-  assert.match(server, /VILLAGE_CONTROL === '1' && !IN_DOCKER/);
+  assert.match(server, /!offFlag\('VILLAGE_CONTROL'\) && !IN_DOCKER/, 'execution on by default, off only with VILLAGE_CONTROL=0 or in Docker');
+  assert.match(server, /\.trim\(\) === '1'/, 'cmd.exe `set X=1 && ...` keeps a trailing space');
   assert.ok(unix || !unix);
+});
+
+test('Status line tap: heartbeat says whether Claude Code sent quota; visible text when there is no other status line; BOM tolerated', async () => {
+  const { writeTapStatus, statusText } = await import('../scripts/claude-statusline-tap.mjs');
+  const { readTapStatus } = await import('../src/orchestrator/sources.js');
+  const dir = tmp('tap-');
+  const input = { transcript_path: '/home/u/.claude/projects/p/s.jsonl' };
+  writeTapStatus(input, dir, 1_000);
+  assert.deepEqual(readTapStatus(dir, '.claude'), { seenAt: 1_000, rateLimits: false });
+  assert.match(statusText(input), /aguardando a cota/);
+  const withQuota = { ...input, rate_limits: { five_hour: { used_percentage: 34, resets_at: 1 }, seven_day: { used_percentage: 61, resets_at: 2 } } };
+  writeTapStatus(withQuota, dir, 2_000);
+  assert.equal(readTapStatus(dir, '.claude').rateLimits, true);
+  assert.equal(statusText(withQuota), '⛲ Agent Village · 5 h 34% · semana 61%');
+  // the real script, fed through a pipe with a UTF-8 BOM (as Windows PowerShell can send)
+  const { spawnSync } = await import('node:child_process');
+  const home = tmp('taphome-');
+  const r = spawnSync(process.execPath, [path.join(root, 'scripts/claude-statusline-tap.mjs')], {
+    input: `﻿${JSON.stringify(withQuota)}`, env: { ...process.env, AGENT_VILLAGE_HOME: home }, encoding: 'utf8',
+  });
+  assert.match(r.stdout, /5 h 34%/);
+  assert.ok(readFileSync(path.join(home, 'usage', '.claude.json'), 'utf8').includes('"five_hour"'));
+});
+
+test('Windows .cmd shims run through a single checked command line (no DEP0190 args array with shell: true)', async () => {
+  const { commandLine, spawnResolved } = await import('../src/orchestrator/proc.js');
+  assert.equal(commandLine('C:\\Program Files\\nodejs\\claude.cmd', ['-p', '--verbose']), '"C:\\Program Files\\nodejs\\claude.cmd" -p --verbose');
+  assert.throws(() => spawnResolved({ file: 'x.cmd', shell: true }, ['ok', 'rm -rf /'], {}), /inseguro/);
+});
+
+test('Execution is on by default when the server starts; VILLAGE_CONTROL=0 is the only way to draft-only', async () => {
+  const s = sandbox();
+  assert.equal(new Orchestrator({ env: s.env, dataDir: path.join(s.home, '.av-a') }).control, true);
+  assert.equal(new Orchestrator({ env: { ...s.env, VILLAGE_CONTROL: '0 ' }, dataDir: path.join(s.home, '.av-b') }).control, false);
+  assert.equal(new Orchestrator({ env: { ...s.env, VILLAGE_CONTROL: '1' }, dataDir: path.join(s.home, '.av-c') }).control, true);
 });

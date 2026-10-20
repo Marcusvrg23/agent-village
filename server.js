@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { EventNormalizer, ROLES } from './src/event-normalizer.js';
 import { SessionWatcher } from './src/session-watcher.js';
 import { AgentRegistry, readSessionMetadata } from './src/agent-registry.js';
+import { Orchestrator } from './src/orchestrator/orchestrator.js';
+import { createControlPlane } from './src/control-http.js';
 
 const HOST = '127.0.0.1';
 const PORT = Number.parseInt(process.env.OPS_ROOM_PORT ?? '4173', 10);
@@ -250,8 +252,19 @@ async function serveStatic(requestPath, response) {
   }
 }
 
+// Agent Village control plane: quotas, ledger, adapters, missions (see src/control-http.js).
+const orchestrator = new Orchestrator();
+const control = createControlPlane(orchestrator);
+const pollTimer = setInterval(() => { try { orchestrator.poll(); } catch (error) { console.error(`[village] poll: ${error.message}`); } }, 10_000);
+pollTimer.unref();
+setTimeout(() => {
+  try { orchestrator.poll(); } catch { /* sources may not exist yet */ }
+  orchestrator.probeAll().catch(() => {});
+}, 1_500).unref();
+
 const server = http.createServer(async (request, response) => {
   const requestUrl = new URL(request.url ?? '/', `http://${HOST}:${PORT}`);
+  if (await control.handle(request, response, requestUrl)) return;
   if (request.method !== 'GET') {
     response.writeHead(405, { Allow: 'GET' }).end('Method not allowed');
     return;
@@ -298,6 +311,8 @@ server.on('error', (error) => {
 
 async function shutdown() {
   watcher.stop();
+  control.close();
+  for (const id of orchestrator.running.keys()) { try { orchestrator.cancel(id); } catch { /* already stopped */ } }
   for (const client of clients) client.end();
   server.close(() => process.exit(0));
 }
@@ -311,4 +326,5 @@ server.listen(PORT, HOST, () => {
   process.parentPort?.postMessage({ type: 'ready', port: actualPort });
   console.log(`[ops-room] http://${HOST}:${actualPort}`);
   console.log(`[ops-room] watching read-only: ${SESSIONS_ROOT}`);
+  console.log(`[village] execução real: ${orchestrator.control ? 'LIGADA (VILLAGE_CONTROL=1, cada missão exige aprovação)' : 'desligada (modo só rascunho)'}`);
 });

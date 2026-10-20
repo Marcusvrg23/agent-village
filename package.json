@@ -9,6 +9,7 @@
     "start": "node server.js",
     "ops-room": "node scripts/ops-room.mjs",
     "village": "node scripts/ops-room.mjs --village",
+    "village:setup": "node scripts/village-setup.mjs",
     "test": "node --test",
     "inspect:rollout": "node scripts/inspect-rollout.mjs",
     "desktop": "electron .",

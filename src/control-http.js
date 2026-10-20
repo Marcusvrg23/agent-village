@@ -171,6 +171,17 @@ export function createControlPlane(orchestrator, { token = randomBytes(24).toStr
       if (!isLoopbackHost(req.headers.host)) { send(res, 403, { error: 'Somente acesso local (127.0.0.1).' }); return true; }
       if (url.pathname.startsWith('/api/village/hooks/')) { await handleHook(req, res, url); return true; }
       if (req.method === 'GET' && url.pathname === '/api/village/state') { send(res, 200, { ...fullState(), token }); return true; }
+      let resultMatch;
+      if (req.method === 'GET' && (resultMatch = /^\/api\/village\/missions\/(M-[0-9]{8}-[0-9]{6}-[a-z0-9]{4})\/output$/.exec(url.pathname))) {
+        const output = orchestrator.missionOutput(resultMatch[1]);
+        const download = url.searchParams.get('download') === '1';
+        res.writeHead(200, {
+          'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
+          ...(download ? { 'Content-Disposition': `attachment; filename="mission-${resultMatch[1]}.md"` } : {}),
+        });
+        res.end(output);
+        return true;
+      }
       if (req.method === 'GET' && url.pathname === '/events/village') { openStream(req, res, false); return true; }
       if (req.method === 'GET' && url.pathname === '/api/village/lan') {
         send(res, 200, lan ? { enabled: true, urls: lanAddresses(typeof lanPort === 'function' ? lanPort() : lanPort), ...lan.current(), devices: lan.devices() } : { enabled: false });

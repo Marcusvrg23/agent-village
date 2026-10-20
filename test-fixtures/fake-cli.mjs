@@ -39,7 +39,10 @@ async function claude() {
     const stdin = await readStdin();
     log({ stdin });
     const run = process.env.FAKE_RUN ?? 'ok';
-    out({ type: 'system', subtype: 'init', session_id: 'sess-claude-1', model: 'claude-test', apiKeySource: 'none' });
+    const session = args.includes('--resume') ? args[args.indexOf('--resume') + 1]
+      : stdin.includes('Papel da sua sessão: LEAD') ? 'sess-claude-lead'
+      : stdin.includes('Papel da sua sessão: WORKER') ? 'sess-claude-worker' : 'sess-claude-1';
+    out({ type: 'system', subtype: 'init', session_id: session, model: 'claude-test', apiKeySource: 'none' });
     if (run === 'slow') await sleep(3_000);
     if (run === 'demo') {
       const steps = [['Read', { file_path: '/p/src/quota.js' }], ['TodoWrite', { todos: [] }], ['Edit', { file_path: '/p/src/quota.js' }], ['Bash', { command: 'npm test' }], ['Bash', { command: 'git diff --stat' }]];
@@ -55,7 +58,7 @@ async function claude() {
     out({ type: 'assistant', parent_tool_use_id: null, message: { id: 'msg2', model: 'claude-test', usage: { input_tokens: 20, output_tokens: 15 },
       content: [{ type: 'tool_use', id: 't2', name: 'Bash', input: { command: 'npm test' } }] } });
     if (run === 'fail') { out({ type: 'result', subtype: 'error_during_execution', is_error: true, session_id: 'sess-claude-1' }); return 1; }
-    out({ type: 'result', subtype: 'success', is_error: false, session_id: 'sess-claude-1', result: process.env.FAKE_RESULT_TEXT ?? 'Feito. Testes passaram.', usage: { input_tokens: 30, cache_read_input_tokens: 90, output_tokens: 20 } });
+    out({ type: 'result', subtype: 'success', is_error: false, session_id: session, result: process.env.FAKE_RESULT_TEXT ?? 'Feito. Testes passaram.', usage: { input_tokens: 30, cache_read_input_tokens: 90, output_tokens: 20 } });
     return 0;
   }
   log();
@@ -100,7 +103,10 @@ async function codex() {
     const stdin = await readStdin();
     log({ stdin });
     const run = process.env.FAKE_RUN ?? 'ok';
-    out({ type: 'thread.started', thread_id: 'thread-codex-1' });
+    const session = args.includes('resume') ? args[args.indexOf('resume') + 1]
+      : stdin.includes('Papel da sua sessão: LEAD') ? 'thread-codex-lead'
+      : stdin.includes('Papel da sua sessão: WORKER') ? 'thread-codex-worker' : 'thread-codex-1';
+    out({ type: 'thread.started', thread_id: session });
     out({ type: 'turn.started' });
     if (run === 'slow') await sleep(3_000);
     if (run === 'demo') {

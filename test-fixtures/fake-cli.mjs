@@ -4,7 +4,7 @@
 //   FAKE_CLAUDE_AUTH  claude.ai | oauth_token | api_key | none        (claude auth status)
 //   FAKE_CODEX_LOGIN  chatgpt | apikey | none                         (codex login status)
 //   FAKE_CODEX_ACCOUNT chatgpt | apiKey | fail                         (app-server account/read)
-//   FAKE_RUN          ok | fail | quota | slow                         (claude -p / codex exec)
+//   FAKE_RUN          ok | fail | quota | slow | demo                  (claude -p / codex exec; demo paces events for QA videos)
 import { appendFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -41,6 +41,15 @@ async function claude() {
     const run = process.env.FAKE_RUN ?? 'ok';
     out({ type: 'system', subtype: 'init', session_id: 'sess-claude-1', model: 'claude-test', apiKeySource: 'none' });
     if (run === 'slow') await sleep(3_000);
+    if (run === 'demo') {
+      const steps = [['Read', { file_path: '/p/src/quota.js' }], ['TodoWrite', { todos: [] }], ['Edit', { file_path: '/p/src/quota.js' }], ['Bash', { command: 'npm test' }], ['Bash', { command: 'git diff --stat' }]];
+      for (const [i, [name, input]] of steps.entries()) {
+        await sleep(Number(process.env.FAKE_STEP_MS ?? 3_500));
+        out({ type: 'assistant', parent_tool_use_id: null, message: { id: `d${i}`, model: 'claude-test', usage: { input_tokens: 40 + i * 10, cache_read_input_tokens: 400, output_tokens: 20 + i * 5 },
+          content: [{ type: 'tool_use', id: `t${i}`, name, input }] } });
+      }
+      await sleep(2_000);
+    }
     out({ type: 'assistant', parent_tool_use_id: null, message: { id: 'msg1', model: 'claude-test', usage: { input_tokens: 10, cache_read_input_tokens: 90, output_tokens: 5 },
       content: [{ type: 'tool_use', id: 't1', name: 'Read', input: { file_path: '/p/src/app.js' } }] } });
     out({ type: 'assistant', parent_tool_use_id: null, message: { id: 'msg2', model: 'claude-test', usage: { input_tokens: 20, output_tokens: 15 },
@@ -94,6 +103,13 @@ async function codex() {
     out({ type: 'thread.started', thread_id: 'thread-codex-1' });
     out({ type: 'turn.started' });
     if (run === 'slow') await sleep(3_000);
+    if (run === 'demo') {
+      const steps = [{ type: 'reasoning', text: '' }, { type: 'command_execution', command: 'rg quota src' }, { type: 'file_change', changes: [{ path: 'src/a.js', kind: 'update' }] }, { type: 'command_execution', command: 'npm test' }];
+      for (const [i, item] of steps.entries()) {
+        await sleep(Number(process.env.FAKE_STEP_MS ?? 3_500));
+        out({ type: 'item.started', item: { id: `d${i}`, ...item } });
+      }
+    }
     out({ type: 'item.started', item: { id: 'i1', type: 'command_execution', command: 'npm test' } });
     out({ type: 'item.completed', item: { id: 'i1', type: 'command_execution', command: 'npm test', exit_code: 0 } });
     if (run === 'quota') { out({ type: 'turn.failed', error: { message: "You've hit your usage limit." } }); return 1; }

@@ -173,15 +173,22 @@ test('Hit testing selects the front-most avatar and the building under the point
   assert.equal(hitBuilding(world.buildings, x + 5, y + 5), 'FORGE');
 });
 
-test('Village frontend has no model, external network or extra stream dependency (zero-token idle life)', async () => {
+test('Village frontend has no model or external network dependency; only same-origin local endpoints', async () => {
   const files = (await readdir(villageDir)).filter((f) => f.endsWith('.js'));
-  assert.ok(files.length >= 4);
+  assert.ok(files.length >= 6);
+  const NETWORK = new Set(['main.js', 'control-ui.js']); // the only modules allowed to talk to the local server
   for (const f of files) {
     const src = await readFile(path.join(villageDir, f), 'utf8');
     assert.doesNotMatch(src, /https?:\/\//, `${f} references an absolute URL`);
-    assert.doesNotMatch(src, /openai|anthropic|api\.|EventSource|WebSocket|XMLHttpRequest/i, `${f} has a network/model dependency`);
+    assert.doesNotMatch(src, /openai|anthropic|api\.|WebSocket|XMLHttpRequest/i, `${f} has a network/model dependency`);
     for (const [, spec] of src.matchAll(/import\s[^'"]*['"]([^'"]+)['"]/g)) assert.ok(spec.startsWith('./'), `${f} imports ${spec}`);
-    for (const [, url] of src.matchAll(/fetch\(\s*['"`]([^'"`]+)['"`]/g)) assert.match(url, /^(world\.json|fx\.json|assets\/)/, `${f} fetches ${url}`);
+    if (!NETWORK.has(f)) {
+      assert.doesNotMatch(src, /\bfetch\(|EventSource/, `${f} must stay pure (no network)`);
+      continue;
+    }
+    for (const [, url] of src.matchAll(/fetch\(\s*['"`]([^'"`]+)['"`]/g)) assert.match(url, /^(world\.json|fx\.json|assets\/|\/api\/village\/)/, `${f} fetches ${url}`);
+    for (const [, url] of src.matchAll(/EventSource\(\s*['"`]([^'"`]+)['"`]/g)) assert.match(url, /^\/events(\/village)?$/, `${f} streams ${url}`);
+    for (const [, url] of src.matchAll(/post\(\s*[`'"]([^`'"]+)[`'"]/g)) assert.match(url, /^\/api\/village\//, `${f} posts to ${url}`);
   }
 });
 

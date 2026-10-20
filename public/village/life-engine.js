@@ -106,7 +106,8 @@ export class Village {
   assignTask(role, task) {
     const a = this.byRole.get(role);
     if (!a) return false;
-    a.task = { label: String(task?.label ?? 'N/A'), state: String(task?.state ?? 'working'), since: this.time };
+    a.task = { label: String(task?.label ?? 'N/A'), state: String(task?.state ?? 'working'), since: this.time,
+      source: task?.source ?? null, provider: task?.provider ?? null, agentId: task?.agentId ?? null, missionId: task?.missionId ?? null };
     a.presence = 'verified';
     a.bubble = null; // ambient lines never overlap real work
     this.#abortSocial(a);

@@ -22,7 +22,7 @@ Abra http://127.0.0.1:4173. Outra porta: defina `OPS_ROOM_PORT` apenas no proces
 node --test
 ```
 
-## Agent Village (Release Orchestrator V2 — M1)
+## Agent Village (Release Orchestrator V2.1)
 
 Vila isométrica em pixel art com agentes independentes, servida pelo mesmo backend local:
 
@@ -35,12 +35,32 @@ Abre http://127.0.0.1:4173/village/ (mesmas regras de porta e de instância úni
 - **Mundo:** mapa limpo (`public/village/assets/map.png`), sem personagens pintados no fundo; caminhos, prédios clicáveis e pontos de convivência em `public/village/world.json`. A fonte central é uma camada de primeiro plano, então quem passa atrás dela fica oculto.
 - **Personagens:** 8 papéis (Lead, Explorer, RE Analyst, Spec Architect, Worker, Reviewer, QA, Release Gate), cada um com 16 quadros (andar em 4 direções por espelhamento, ocioso, piscar, olhar para trás, digitar, ler, falar, comemorar). Atlas em `public/village/assets/sprites/`.
 - **Life Engine** (`public/village/life-engine.js`): simulação local, determinística e semeada. Os avatares passeiam pelos caminhos, visitam prédios, conversam em pares, descansam e voltam ao próprio prédio. Não faz chamadas de modelo, não gasta tokens e não gera eventos técnicos. Os balões são frases ambiente locais, em estilo escuro e tracejado.
-- **Verdade visual:** todo avatar começa em **STANDBY**. A ligação com eventos reais do Codex é o M2: o ponto de entrada já existe (`assignTask`/`releaseTask`, que interrompe a rotina, termina o trecho atual sem saltos, leva o avatar ao seu prédio e marca **ACTIVE**), mas no M1 nada o chama.
+- **Verdade visual:** todo avatar começa em **STANDBY** e só fica **ACTIVE** quando um agente real ocupa o papel (veja *Agentes reais na vila* abaixo). Um agente real ocupa um único avatar por vez; se houver mais agentes no mesmo papel, o painel mostra `(+N)`.
 - **Interação:** arrastar move a câmera; roda do mouse, botões ou teclas `+`, `-` e `0` controlam o zoom; clicar num personagem ou prédio abre o painel lateral; `Esc` fecha. O botão ⏸ e `prefers-reduced-motion` deixam todos parados.
 - **Desempenho:** 30 fps no máximo, cenário desenhado como uma única imagem e só 8 sprites por quadro; `?debug=1` mostra fps e ms por quadro.
 - **Cenário vivo (Etapa A):** ciclo dia/noite pela hora local (céu azul de dia, pôr do sol, noite estrelada), 65 luzes do mapa (postes, tochas, janelas, forja, cristais, frascos e telas) que acendem à noite com halos e cintilação, água com brilho correndo no rio e na fonte, cachoeira com névoa, fumaça e faíscas na Forge, bolhas no Test Lab, folhas caindo, vaga-lumes à noite, borboletas de dia e clima local (limpo, nublado, chuva, neblina). Botões ⟳/☀/☾ (hora) e ⛅ (clima) no canto superior direito. URL: `?hora=21:30`, `?clima=chuva|neblina|nublado|limpo`, `?qualidade=baixa`, `?efeitos=off`. Clima e hora são simulação decorativa local: nunca representam dados reais nem trabalho de agentes. À noite e na chuva os avatares ficam mais em casa e descansam mais (só preferência de passeio; animações e verdade intactas).
 - **Desempenho:** o fundo iluminado é pré-composto num cache refeito só quando a luz muda; os sprites recebem uma versão pré-tingida e a luz local dos postes próximos. Se a taxa ficar abaixo de 24 fps por 3 s, os efeitos passam sozinhos para qualidade baixa.
 - **Arte:** gerada com Higgsfield (procedência em `art/village-src/README.md`). Para regerar os assets (mapa, sprites, oclusores, máscara do céu e `fx.json`), rode `sh scripts/village-art/build_all.sh` (requer Python 3 com numpy, pillow, opencv-python e scipy; só o build de arte usa Python, o app não).
+
+### V2.1 — cota real, roteamento sem gasto de API e missões na vila
+
+Tudo roda no `server.js` local (127.0.0.1). Nenhuma chamada de modelo acontece sem você aprovar uma missão.
+
+- **Agentes reais na vila (M2):** três fontes, nunca misturadas com a vida ociosa:
+  - *Codex (observado)*: os rollouts lidos pelo watcher somente leitura do Ops Room;
+  - *Claude Code (observado)*: transcrições em `~/.claude/projects` (só nome da ferramenta e nome do arquivo; nenhum texto de prompt ou resposta);
+  - *missão da vila*: missões aprovadas por você no painel ✎ Missão (têm prioridade sobre as observadas).
+- **Fonte de Elixir (⛲ ou clique na fonte):** cota real do Claude Pro e do Codex Plus (janela de 5 h e semanal, a mais apertada define o nível), estado (disponível, baixa, esgotada, aguardando dados novos, desatualizada), próxima renovação, origem e idade da leitura, e tokens medidos. *Atualizar leitura* só relê as fontes locais: nunca repõe créditos. Janela vencida vira "sem dado" (nunca 0% ou 100% inventado); a fonte só volta a encher quando o provedor informa a renovação.
+  - Codex: `codex app-server` (`account/rateLimits/read`, sem turno de modelo) ou os rollouts locais.
+  - Claude: o Claude Code só entrega a cota ao *status line*. Instale o coletor uma vez: `npm run village:setup -- statusline install --yes` (faz backup do `settings.json`, preserva seu status line atual e guarda só as janelas de cota). Remover: `npm run village:setup -- statusline uninstall --yes`.
+- **Firewall financeiro (orçamento de API: US$ 0,00):** antes de qualquer execução a vila verifica que o login é pela assinatura (`claude auth status` → `claude.ai`/`oauth_token`; `codex login status` → "Logged in using ChatGPT" + conta `chatgpt`). Cobrança desconhecida ou por API bloqueia. Variáveis de chave de API (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `CODEX_API_KEY` e afins) são removidas do ambiente dos processos filhos. Nunca usa `--bare`.
+- **Roteamento automático:** escolhe entre Claude Code e Codex pela cota real restante (e, depois de 3 missões, pela taxa de aceitação medida); máximo de 3 agentes, sem execução duplicada; cota esgotada → *aguardando cota*; um único fallback seguro. Escolha manual continua sujeita ao firewall.
+- **Missões (✎ Missão):** prompt + pasta do projeto + runtime + permissão (somente leitura / pode editar). *Analisar (grátis)* classifica no Adaptive SDD (S0–S4), monta a cápsula de contexto e mostra o preflight (runtime, motivo, risco, "Gasto de API permitido: US$ 0"). *Aprovar e executar* aparece só quando tudo está verificado; editar exige marcar a autorização. Ao final, o Release Gate avalia execução, cobrança, permissões, escopo, testes e verdade visual (READY / PARTIAL / BLOCKED).
+  - Por padrão a vila fica em **modo só rascunho** (nada é executado; dá para copiar o prompt). Para permitir execução real: `set VILLAGE_CONTROL=1 && npm run village` (Prompt de Comando) ou `$env:VILLAGE_CONTROL=1; npm run village` (PowerShell).
+  - Pastas permitidas: sua pasta pessoal, ou a lista em `VILLAGE_PROJECT_ROOTS` (separadas por `;`).
+- **Context Vault:** cada missão grava spec, cápsula, eventos, auditoria e `release.md` em `~/.agent-village/orchestrator` (segredos mascarados); o uso de tokens fica em `~/.agent-village/usage.jsonl`, sem apagar histórico.
+- **REA (engenharia reversa):** só para alvo binário que você marcar como seu/autorizado. A vila não instala o REA; se a CLI `rea` não estiver no PATH, a missão segue só com análise de fonte e a evidência binária fica como desconhecida.
+- **Segurança do plano de controle:** só aceita Host de loopback, mesma origem, `application/json` e o token do processo; a vila nunca lê `auth.json`, chaveiros ou credenciais.
 
 ## Observabilidade
 
@@ -90,8 +110,8 @@ npm.cmd run package:windows
 
 Abra `release/Codex Ops Room-win32-x64/Codex Ops Room.exe`. Mantenha a pasta inteira junto do executável: é um aplicativo portátil em pasta, não um instalador ou executável único. A distribuição não inclui node_modules, testes ou cópias dos rollouts. A máquina de destino não precisa ter Node instalado.
 
-O Electron é somente shell: inicia o mesmo `server.js` usando o Node embutido e abre o mesmo frontend. Seleciona automaticamente uma porta livre em `127.0.0.1`; a URL aparece no título. Fechar a janela encerra somente o backend pertencente àquela janela. Nenhuma sessão Codex é encerrada.
+O Electron é somente shell: inicia o mesmo `server.js` usando o Node embutido e abre a Agent Village (`/village/`); `--ops-room` abre a tela original. Para execução real de missões no aplicativo, defina `VILLAGE_CONTROL=1` antes de abri-lo. Seleciona automaticamente uma porta livre em `127.0.0.1`; a URL aparece no título. Fechar a janela encerra somente o backend pertencente àquela janela. Nenhuma sessão Codex é encerrada.
 
-O renderer usa sandbox, context isolation, Node desabilitado e bloqueio de requisições/navegação externas. O perfil normal pertence somente a Codex Ops Room no diretório de aplicativos do Windows; não usa `.codex` para armazenamento. O modo `--smoke-test` abre uma janela oculta, verifica a imagem, SSE e rollout real e grava o resultado na pasta indicada por `OPS_ROOM_SMOKE_DIR` (ou no temporário do sistema).
+O renderer usa sandbox, context isolation, Node desabilitado e bloqueio de requisições/navegação externas. O perfil normal pertence somente a Codex Ops Room no diretório de aplicativos do Windows; não usa `.codex` para armazenamento. O modo `--smoke-test` abre uma janela oculta, verifica a imagem, SSE e rollout real do Ops Room e também a vila (canvas, plano de controle, orçamento US$ 0) e grava o resultado na pasta indicada por `OPS_ROOM_SMOKE_DIR` (ou no temporário do sistema).
 
 Referências de implementação: [Electron utilityProcess](https://www.electronjs.org/docs/latest/api/utility-process), [Electron sandbox](https://www.electronjs.org/docs/latest/tutorial/sandbox/), [Electron Packager](https://packages.electronjs.org/packager/v20.0.1/index.html).

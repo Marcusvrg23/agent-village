@@ -214,6 +214,10 @@ export class SceneFx {
     this.tinted = new Map();
     this.timers = new Map();
     this.activity = new Map(); // building id -> 0..1 (M2: verified real activity only)
+    // Fonte de Elixir: mirrors REAL provider quota (null = no data). Never invented, never reset locally.
+    this.elixir = { level: null, exhausted: false };
+    const f0 = fx.fountain;
+    for (const l of this.lights) l.fountain = Math.abs(l.x - f0.x) < 30 && Math.abs(l.y - f0.y) < 40;
     this.water = (quality === 'baixa' ? fx.waterPoints.filter((_, i) => i % 2 === 0) : fx.waterPoints)
       .map(([x, y], i) => ({ x, y, ph: (i * 2.17) % TAU, sp: 0.0016 + ((i * 7) % 10) * 0.00012 }));
     this.fog = Array.from({ length: 10 }, (_, i) => ({ x: (i * 173) % w, y: 110 + ((i * 131) % (h - 180)), r: 150 + (i % 3) * 50, v: 4 + (i % 4) * 2 }));
@@ -351,6 +355,21 @@ export class SceneFx {
     this.activity.set(id, Math.max(0, Math.min(1, Number(level) || 0)));
   }
 
+  /** Real quota mirror: level 0..1 (or null when no provider data), exhausted when every plan is out. */
+  setElixir({ level = null, exhausted = false } = {}) {
+    this.elixir = { level: level === null ? null : Math.max(0, Math.min(1, level)), exhausted: Boolean(exhausted) };
+  }
+
+  /** Sparkle burst — called only after the provider itself confirmed a reset (provider.reset_verified). */
+  refillBurst() {
+    if (this.reduced) return;
+    const f = this.fx.fountain;
+    for (let i = 0; i < 36; i++) {
+      const a = (i / 36) * TAU;
+      this.particles.spawn(K.SPARK, f.x + Math.cos(a) * 10, f.y + Math.sin(a) * 5, Math.cos(a) * 30, -30 - Math.random() * 30, 0.9 + Math.random() * 0.6, Math.random() < 0.5 ? 2 : 1);
+    }
+  }
+
   setReducedMotion(on) {
     this.reduced = on;
     if (on) this.particles.clear();
@@ -387,7 +406,7 @@ export class SceneFx {
     }
     // fountain droplets
     const f = this.fx.fountain;
-    if (this.#every('drop', 70, now)) {
+    if (this.#every('drop', this.elixir.exhausted ? 650 : 70, now)) {
       const a = Math.random() * TAU;
       p.spawn(K.DROP, f.x + Math.cos(a) * 8, f.y + 4, Math.cos(a) * (14 + Math.random() * 16), -34 - Math.random() * 18, 1.4, Math.random() < 0.4 ? 2 : 1, 0, 0, f.y + 26 + Math.random() * 14);
     }
@@ -502,7 +521,8 @@ export class SceneFx {
       if (l.kind.startsWith('crystal')) a = 0.16 + 0.22 * (this.reduced ? 0.5 : pulse(now, 3_200, l.seed));
       else a = (this.reduced ? 1 : flicker(now, l.seed, spec.flicker)) * (l.kind === 'fire' ? 0.42 : l.kind === 'window' ? 0.12 : 0.22);
       const boost = l.kind === 'fire' ? (this.activity.get('FORGE') ?? 0) * 0.35 : 0;
-      ctx.globalAlpha = Math.min(1, a * strength + boost);
+      const elixir = l.fountain ? (this.elixir.exhausted ? 0.25 : this.elixir.level === null ? 1 : 0.55 + 0.45 * this.elixir.level) : 1;
+      ctx.globalAlpha = Math.min(1, (a * strength + boost) * elixir);
       const r = spec.radius * (l.kind === 'fire' ? 0.8 : 0.5);
       ctx.drawImage(radialSprite(spec.color, r), l.x - r, l.y - r, r * 2, r * 2);
     }

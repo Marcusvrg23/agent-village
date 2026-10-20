@@ -16,8 +16,9 @@ export const POLICY = Object.freeze({
 
 const QUOTA_BLOCK = new Set(['EXHAUSTED']);
 
+// Accepts both a bare snapshot ({windows}) and a QuotaStore view ({snapshot:{windows}}).
 function maxUsed(quota) {
-  const w = Object.values(quota?.windows ?? {});
+  const w = Object.values(quota?.windows ?? quota?.snapshot?.windows ?? {});
   return w.length ? Math.max(...w.map((x) => x.usedPercent)) : null;
 }
 

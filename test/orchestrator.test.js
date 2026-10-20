@@ -193,6 +193,14 @@ test('Router: automatic choice by real quota, WAITING_FOR_QUOTA, cap of 3 total,
   assert.equal(d.adapter, 'codex');
   assert.equal(d.fallback, 'claude-code');
   assert.equal(d.policy.allowedApiSpendUsd, 0);
+  // Same decision with the QuotaStore view shape the orchestrator really passes ({snapshot:{windows}}).
+  const store = new QuotaStore();
+  const t = Date.now();
+  store.set({ provider: 'claude-code', source: 't', fetchedAt: t, windows: { fiveHour: { usedPercent: 61, windowMinutes: 300, resetsAt: t + H } } }, t);
+  store.set({ provider: 'codex', source: 't', fetchedAt: t, windows: { fiveHour: { usedPercent: 40, windowMinutes: 300, resetsAt: t + H } } }, t);
+  d = route({ mission, probes: { 'claude-code': sub('claude-code'), codex: sub('codex') }, quotas: { 'claude-code': store.view('claude-code', t), codex: store.view('codex', t) } });
+  assert.equal(d.adapter, 'codex');
+  assert.match(d.candidates.find((c) => c.id === 'codex').why, /60% da janela/);
   d = route({ mission, probes: { 'claude-code': sub('claude-code'), codex: sub('codex', { billing: { mode: 'api', verified: true } }) }, quotas: {} });
   assert.equal(d.adapter, 'claude-code', 'API-billed runtime never selected');
   d = route({ mission, probes: { 'claude-code': sub('claude-code', { billing: { mode: 'unknown', verified: false } }), codex: sub('codex', { billing: { mode: 'api', verified: true } }) } });

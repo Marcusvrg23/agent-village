@@ -1,9 +1,12 @@
 // Agent Village — bootstrap: loads local assets, runs the Life Engine and the Canvas renderer.
-// Local only: same-origin fetches of static files; no model or external network calls.
-import { Village, ROLE_LABELS } from './life-engine.js';
+// Local only: same-origin fetches (static files, the local control plane and the Ops Room SSE); no model calls.
+// Real work reaches the avatars only through projector.js (verified runtime data); idle life stays local.
+import { Village, ROLE_LABELS, ROLE_ORDER } from './life-engine.js';
 import { Camera, Renderer, hitAgent, hitBuilding } from './renderer.js';
 import { WEATHERS, WEATHER_LABELS, ambientAt, effectiveHour, parseHourParam, weatherAt, weatherTint } from './ambience.js';
 import { SceneFx } from './effects.js';
+import { MissionTracker, SOURCE_LABELS, STATE_LABELS, applyAssignments, claudeClaims, codexClaims, project } from './projector.js';
+import { ControlClient, mountControlUi } from './control-ui.js';
 
 const TIME_MODES = ['auto', 'dia', 'noite'];
 const TIME_ICONS = { auto: '⟳', dia: '☀', noite: '☾' };
@@ -29,6 +32,9 @@ const debug = params.has('debug');
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('world');
+
+const inRect = (r, x, y) => Boolean(r) && x >= r[0] && x <= r[0] + r[2] && y >= r[1] && y <= r[1] + r[3];
+const shortId = (id) => (String(id).length > 14 ? `${String(id).slice(0, 8)}…${String(id).slice(-4)}` : String(id));
 
 function loadImage(src) {
   return new Promise((resolve, reject) => {
@@ -110,7 +116,7 @@ async function boot() {
     const agent = hitAgent(village.snapshot(), wx, wy);
     ui.hovered = agent?.role ?? null;
     ui.hoveredBuilding = agent ? null : hitBuilding(world.buildings, wx, wy);
-    canvas.classList.toggle('pointer', Boolean(ui.hovered || ui.hoveredBuilding));
+    canvas.classList.toggle('pointer', Boolean(ui.hovered || ui.hoveredBuilding || inRect(world.fountain?.rect, wx, wy)));
   });
   canvas.addEventListener('pointerup', (e) => {
     canvas.classList.remove('dragging');
@@ -118,6 +124,7 @@ async function boot() {
       const [wx, wy] = camera.toWorld(e.offsetX, e.offsetY);
       const agent = hitAgent(village.snapshot(), wx, wy);
       if (agent) select({ role: agent.role });
+      else if (inRect(world.fountain?.rect, wx, wy) && control) { select({}); control.openFountain(); }
       else {
         const b = hitBuilding(world.buildings, wx, wy);
         select(b ? { building: b } : {});
@@ -154,6 +161,7 @@ async function boot() {
   const panel = $('panel');
   $('panel-close').addEventListener('click', () => select({}));
   function select({ role = null, building = null }) {
+    if (role || building) $('fountain').hidden = true;
     ui.selected = role;
     ui.selectedBuilding = building;
     panel.hidden = !role && !building;
@@ -175,11 +183,17 @@ async function boot() {
         ...row('Prédio', world.buildings[a.building].label),
         ...row('Presença', a.presence === 'verified' ? 'ACTIVE (agente real verificado)' : 'STANDBY'),
         ...row('Atividade', ACTIVITY_LABELS[a.activity] ?? a.activity),
-        ...row('Agente real', a.task ? a.task.label : 'nenhum'),
+        ...(a.task ? [
+          ...row('Fonte', SOURCE_LABELS[a.task.source] ?? a.task.source ?? '—'),
+          ...row('Estado real', STATE_LABELS[a.task.state] ?? a.task.state),
+          ...row('Agente', a.task.agentId ? shortId(a.task.agentId) : '—'),
+          ...row('Missão', a.task.missionId ?? '—'),
+          ...row('Tarefa', a.task.label),
+        ] : row('Agente real', 'nenhum')),
       );
       $('panel-note').textContent = a.task
-        ? 'Estado derivado de evento real do runtime.'
-        : 'Vida ociosa simulada localmente. Não representa trabalho do Codex; eventos reais entram no M2.';
+        ? 'Estado derivado de evento real (rollout do Codex, transcrição do Claude Code ou missão aprovada). Nenhum conteúdo de prompt é exibido.'
+        : 'Vida ociosa simulada localmente. Não representa trabalho real; o avatar fica ACTIVE só quando um agente real ocupa este papel.';
     } else if (ui.selectedBuilding) {
       const b = world.buildings[ui.selectedBuilding];
       $('panel-kicker').textContent = 'Prédio';
@@ -188,7 +202,9 @@ async function boot() {
         ...row('Papel', b.role ? ROLE_LABELS[b.role] : 'Serviço local (sem avatar)'),
         ...row('Função', b.about),
       );
-      $('panel-note').textContent = 'Fases, specs e evidências aparecem aqui quando o Orchestrator estiver ligado (M3).';
+      const active = b.role && village.agent(b.role)?.task;
+      if (active) body.append(...row('Agora', active.label));
+      $('panel-note').textContent = b.role ? 'O prédio brilha mais quando o papel tem um agente real ativo.' : 'Missões, specs e evidências ficam no Context Vault (~/.agent-village/orchestrator).';
     }
   }
 
@@ -229,20 +245,67 @@ async function boot() {
       if (stats.slow >= 3 && quality === 'alta') {
         quality = 'baixa';
         fx = new SceneFx(world, fxData, { quality, reducedMotion: motionBtn.getAttribute('aria-pressed') === 'true', map, skyMask });
+        fx.setElixir(elixir);
       }
       const totalMin = Math.round(env.amb.hour * 60) % 1440;
       const hh = String(Math.floor(totalMin / 60)).padStart(2, '0');
       const mm = String(totalMin % 60).padStart(2, '0');
-      $('mode').textContent = `IDLE · ${hh}:${mm} ${PHASE_LABELS[env.amb.phase]} · ${WEATHER_LABELS[env.weather.kind]}`;
+      const live = ROLE_ORDER.filter((r) => village.agent(r)?.task).length;
+      $('mode').textContent = `${live ? `ACTIVE · ${live} real` : 'IDLE'} · ${hh}:${mm} ${PHASE_LABELS[env.amb.phase]} · ${WEATHER_LABELS[env.weather.kind]}`;
       if (debug) perf.textContent = `${stats.fps} fps · render ${stats.avgMs.toFixed(2)} ms/quadro · efeitos ${quality} · partículas ${fx.particles.n}`;
       stats.frames = 0; stats.renderMs = 0; stats.since = now;
     }
     if (++panelTick % 10 === 0 && ui.selected) renderPanel();
   }
   document.addEventListener('visibilitychange', () => { last = performance.now(); });
+
+  // ---- real runtime projection (M2) + control plane (Fonte de Elixir, missions) ----
+  let elixir = { level: null, exhausted: false };
+  const tracker = new MissionTracker();
+  const client = new ControlClient();
+  let control = null;
+  let room = null;
+  let claudeSessions = [];
+  try {
+    control = mountControlUi({ client, onFountainState: (st) => { elixir = st; fx.setElixir(st); } });
+  } catch (error) {
+    console.warn('[village] painel de controle indisponível', error);
+  }
+  client.addEventListener('village', (e) => {
+    tracker.push(e.detail);
+    if (e.detail?.type === 'provider.reset_verified') fx.refillBurst();
+  });
+  client.addEventListener('state', (e) => {
+    tracker.sync(e.detail.running);
+    claudeSessions = e.detail.observed?.claude ?? [];
+    paintRuntime(e.detail);
+  });
+  client.addEventListener('unavailable', () => { $('runtime').textContent = 'Runtime: plano de controle indisponível'; });
+  client.start();
+  // Codex agents keep coming from the original Ops Room watcher (read-only rollouts).
+  try {
+    const opsRoom = new EventSource('/events');
+    opsRoom.addEventListener('snapshot', (e) => { try { room = JSON.parse(e.data).room ?? null; } catch { /* ignore malformed */ } });
+  } catch { /* EventSource unavailable */ }
+  function paintRuntime(state) {
+    const badge = $('runtime');
+    const ok = (id) => state.adapters?.[id]?.status === 'connected';
+    const names = [ok('codex') && 'Codex', ok('claude-code') && 'Claude Code'].filter(Boolean);
+    badge.textContent = `Runtime: ${names.length ? names.join(' + ') : 'nenhum verificado'}${state.control ? ' · execução ligada' : ' · só rascunho'}`;
+    badge.title = ['claude-code', 'codex'].map((id) => `${id}: ${state.adapters?.[id]?.billing?.reason ?? 'verificando'}`).join('\n');
+  }
+  const BUILDING_OF = Object.fromEntries(Object.entries(world.buildings).filter(([, b]) => b.role).map(([id, b]) => [b.role, id]));
+  function projectTick() {
+    const now = Date.now();
+    const claims = [...tracker.claims(), ...codexClaims(room, now), ...claudeClaims(claudeSessions, now)];
+    const assignments = project(claims);
+    applyAssignments(village, assignments, ROLE_ORDER);
+    for (const role of ROLE_ORDER) if (BUILDING_OF[role]) fx.setBuildingActivity(BUILDING_OF[role], assignments.has(role) ? 1 : 0);
+  }
+  setInterval(projectTick, 1000);
   $('loading').hidden = true;
   requestAnimationFrame(frame);
-  if (debug) window.__village = { get village() { return village; }, get fx() { return fx; }, camera, stats, world, env };
+  if (debug) window.__village = { get village() { return village; }, get fx() { return fx; }, camera, stats, world, env, tracker, client, projectTick };
 }
 
 boot().catch((error) => {

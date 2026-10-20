@@ -822,5 +822,15 @@
    "x": 965,
    "y": 368
   }
- ]
+ ],
+ "fountain": {
+  "label": "Fonte de Elixir",
+  "rect": [
+   572,
+   248,
+   168,
+   152
+  ],
+  "about": "Cota real dos planos (Claude Pro e Codex Plus). Clique para atualizar a leitura; nunca rep\u00f5e cr\u00e9ditos."
+ }
 }

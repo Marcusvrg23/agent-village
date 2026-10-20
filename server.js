@@ -259,8 +259,11 @@ const pollTimer = setInterval(() => { try { orchestrator.poll(); } catch (error)
 pollTimer.unref();
 setTimeout(() => {
   try { orchestrator.poll(); } catch { /* sources may not exist yet */ }
-  orchestrator.probeAll().catch(() => {});
+  // Quota read via `codex app-server` (account/rateLimits/read: no model turn, no tokens) once the
+  // subscription is verified, then every 15 min; the Claude quota comes from the status line tap.
+  orchestrator.probeAll().then(() => orchestrator.refreshQuota()).catch(() => {});
 }, 1_500).unref();
+setInterval(() => { orchestrator.refreshQuota().catch(() => {}); }, 15 * 60_000).unref();
 
 const server = http.createServer(async (request, response) => {
   const requestUrl = new URL(request.url ?? '/', `http://${HOST}:${PORT}`);

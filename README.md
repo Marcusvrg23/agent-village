@@ -1,8 +1,112 @@
-# Agent Village (e o Codex Ops Room)
+<p align="center">
+  <img src="docs/media/logo.png" width="140" alt="Logo da Agent Village: a fonte de cristal azul da praça da vila, em pixel art" />
+</p>
 
-Vila local em pixel art onde os seus agentes do **Claude Code** e do **Codex** aparecem trabalhando, levantam a mão quando precisam de você e executam missões aprovadas por você, sem gasto de API. Inclui o Codex Ops Room original (monitor somente leitura das sessões Codex), que preserva a imagem oficial `public/quality-ops-room-reference.webp`.
+<h1 align="center">Agent Village</h1>
 
-**Roda em Windows, macOS e Linux** (Node.js 20+, sem dependências de produção), em Docker ou como aplicativo desktop. Testes automáticos nos três sistemas: `.github/workflows/test.yml`.
+<p align="center">
+  <b>A vila onde seus agentes do Claude Code e do Codex trabalham, levantam a mão quando precisam de você e executam missões sem gastar um centavo de API.</b><br />
+  Cada agente vira um morador em pixel art; cada projeto ganha uma barraca; a fonte da praça mostra a cota real dos seus planos.
+</p>
+
+<p align="center"><b>Português</b> · <a href="README.en.md">English</a></p>
+
+<p align="center">
+  <a href="https://github.com/Marcusvrg23/agent-village/actions/workflows/test.yml"><img alt="Testes em Windows, macOS e Linux" src="https://github.com/Marcusvrg23/agent-village/actions/workflows/test.yml/badge.svg?branch=feat%2Fagent-village" /></a>
+  <img alt="Node.js 20+" src="https://img.shields.io/badge/node-%E2%89%A520-5fa04e?logo=node.js&logoColor=white" />
+  <img alt="Windows, macOS e Linux" src="https://img.shields.io/badge/roda%20em-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-4aa8e8" />
+  <img alt="Docker pronto" src="https://img.shields.io/badge/Docker-pronto-2496ed?logo=docker&logoColor=white" />
+  <img alt="Zero dependências de produção" src="https://img.shields.io/badge/depend%C3%AAncias%20de%20produ%C3%A7%C3%A3o-0-f08a3c" />
+  <img alt="Gasto de API: US$ 0" src="https://img.shields.io/badge/gasto%20de%20API-US%24%200%2C00-5ee6a8" />
+</p>
+
+<p align="center">
+  <img src="docs/media/vila.gif" width="820" alt="A vila ao entardecer: um agente pede para instalar uma dependência, o avatar dele corre até o Gatehouse e levanta a mão, e o pedido é aprovado no cartão" />
+</p>
+<p align="center"><sub>Um pedido real de permissão do Claude Code: o avatar corre até o Gatehouse, levanta a mão e você aprova no cartão. Sessões de demonstração.</sub></p>
+
+---
+
+Você abre o Claude Code e o Codex em vários projetos, dispara subagentes, deixa testes rodando… e perde a noção de quem está fazendo o quê, de quem está parado esperando você e de quanto da cota já foi. A **Agent Village** transforma tudo isso numa vila que dá para entender de relance, e vai além de mostrar: **ela também coordena o trabalho**. Você escreve um pedido na vila, ela escolhe entre Claude Code e Codex pela cota real, confere que tudo roda pelo seu plano (nunca por API paga), executa com a sua aprovação e passa o resultado por um Release Gate.
+
+Tudo roda no seu computador. A vila lê os arquivos que o Claude Code e o Codex já gravam, nunca abre credenciais e não faz chamadas externas. A vida dos moradores (passeios, conversas, jogos) é calculada localmente, sem IA e sem gastar tokens.
+
+## O que ela faz
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/mao-levantada.png" alt="Cartão amarelo: Claude Code precisa de você, quer executar npm install date-fns, com os botões Aprovar, Recusar e Responder no terminal" /></td>
+    <td width="50%"><img src="docs/media/missao.gif" alt="Uma missão é escrita no painel, analisada de graça, aprovada, e os avatares começam a trabalhar" /></td>
+  </tr>
+  <tr>
+    <td><b>Precisa de você.</b> Quando um agente pede permissão, o avatar daquela sessão corre até o Gatehouse e levanta a mão. O cartão mostra o comando, o arquivo ou a página; você aprova, recusa com um motivo ou deixa para o terminal. Vale o que responder primeiro. Com som e notificação opcionais.</td>
+    <td><b>Missões direto da vila.</b> Escreva o pedido, escolha a pasta e se o agente pode editar. A análise é grátis: mostra o nível (S0 a S4), quem vai executar e por quê, o risco e <b>"Gasto de API permitido: US$ 0"</b>. Você aprova e acompanha os avatares; no fim, o Release Gate diz se ficou pronto.</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/fonte-elixir.png" alt="Painel Fonte de Elixir com a cota do Claude Code e do Codex: janela de 5 horas, semanal e horário de renovação" /></td>
+    <td><img src="docs/media/espera.gif" alt="Avatar no Test Lab com ampulheta e o balão Rodar a suíte de testes, com os minutos passando" /></td>
+  </tr>
+  <tr>
+    <td><b>Fonte de Elixir.</b> A fonte da praça é a cota real dos seus planos: janela de 5 horas e semanal do Claude Pro/Max e do ChatGPT Plus, com a próxima renovação, por conta. Clicar só relê os dados; ela nunca inventa crédito e só volta a encher quando o provedor confirma a renovação.</td>
+    <td><b>Esperando o teste rodar.</b> Enquanto um teste ou build de verdade roda, o avatar fica no prédio com uma ampulheta e o tempo: come pipoca, cruza os braços (3 min), junta teias (10 min) e cochila (25 min). Confete se passou, nuvem de chuva se falhou.</td>
+  </tr>
+  <tr>
+    <td><img src="docs/media/vida-social.gif" alt="Avatares batendo bola na praça, jogando pedra-papel-tesoura e pescando na ponte" /></td>
+    <td><img src="docs/media/dia-e-noite.gif" alt="Um dia inteiro na vila em segundos: entardecer, noite com lampiões acesos, neblina e amanhecer" /></td>
+  </tr>
+  <tr>
+    <td><b>Vida social.</b> Sem trabalho real, os moradores batem bola na praça, jogam pedra-papel-tesoura valendo moedas e pescam na ponte, cada um com sua personalidade. Um trabalho real interrompe qualquer jogo na hora, e as moedas nunca têm relação com tokens.</td>
+    <td><b>Cenário vivo.</b> Dia e noite pela sua hora local, lampiões e janelas que acendem, água correndo, cachoeira, fumaça na Forge, vaga-lumes, chuva e neblina. Roda a 30 fps até num notebook de 2013 com vídeo integrado.</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/espera-acampamento.png" alt="Barraca do projeto quality-life ao lado do Context Vault e o avatar do Test Lab com o balão do teste em andamento" /></td>
+    <td><img src="docs/screenshots/visuais.png" alt="Painel Visual dos avatares com cabelo dourado, roupa verde, tom de pele e visual Neve aplicados" /></td>
+  </tr>
+  <tr>
+    <td><b>Uma barraca por projeto.</b> Cada projeto com sessão aberta ganha uma barraca num lote do mapa. A luz acende enquanto há agentes trabalhando, apaga quando param, e a barraca é desmontada quando você fecha a última sessão.</td>
+    <td><b>Visuais.</b> Troque cabelo, roupa e tom de pele, use o visual de outro papel ou importe uma arte sua seguindo a <a href="ART-POLICY.md">política de arte</a>. As animações continuam as mesmas.</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/celular.png" width="260" alt="A vila no celular com um pedido do Codex para executar rm -rf build e os botões Aprovar e Recusar" /></td>
+    <td><img src="docs/screenshots/noite-chuva.png" alt="A vila à noite, na chuva, com as janelas e os lampiões acesos" /></td>
+  </tr>
+  <tr>
+    <td><b>No celular.</b> Na mesma rede Wi-Fi, pareie com um código de 8 caracteres e acompanhe a vila, aprovando ou recusando pedidos de longe. O celular não cria missões nem vê caminhos de pasta.</td>
+    <td><b>Várias contas.</b> Cada pasta <code>~/.claude*</code> e <code>~/.codex*</code> vira uma conta, com a própria cota. A missão vai para a conta com mais cota livre, ou para a que você escolher.</td>
+  </tr>
+</table>
+
+## Por que a Agent Village
+
+| | |
+|---|---|
+| **Coordena, não só mostra** | Missões com análise grátis, escolha automática entre Claude Code e Codex pela cota real, aprovação explícita, Release Gate e histórico no Context Vault. |
+| **US$ 0 de API, garantido** | Só executa com login de assinatura verificado; chaves de API são removidas dos processos; cobrança desconhecida bloqueia. Cota esgotada espera a renovação ou vai para outra conta sua. |
+| **Windows de primeira classe** | Roda nativo no Windows (hooks em formato exec, sem precisar de Git Bash), além de macOS, Linux, Docker e app desktop. Testado nos três sistemas a cada envio. |
+| **Leve** | Zero dependências de produção, um processo Node e Canvas 2D: 30 fps num i5 de 4ª geração com 6 GB de RAM. |
+| **Honesta** | Um avatar só fica ACTIVE com um agente real. Clima, hora e vida social são decoração local e dizem isso na tela. |
+| **Em português** | Feita no Brasil, com toda a interface em PT-BR. |
+
+## Instalar
+
+Precisa do [Node.js 20+](https://nodejs.org/) e do Claude Code e/ou do Codex logados pelo plano.
+
+```bash
+git clone https://github.com/Marcusvrg23/agent-village.git
+cd agent-village
+npm run village
+```
+
+A vila abre em http://127.0.0.1:4173/village/. Depois, uma vez (cada comando mostra uma prévia sem `--yes` e faz backup antes):
+
+```bash
+npm run village:setup -- hooks install --yes        # mão levantada (pedidos de permissão na vila)
+npm run village:setup -- statusline install --yes   # cota do Claude na Fonte de Elixir
+```
+
+Para executar missões de verdade, abra com `VILLAGE_CONTROL=1` (Windows: `set VILLAGE_CONTROL=1 && npm run village`). Para o celular, `VILLAGE_LAN=1`.
+
+Outras formas de rodar:
 
 | Como rodar | Comando | Observação |
 |---|---|---|
@@ -10,7 +114,12 @@ Vila local em pixel art onde os seus agentes do **Claude Code** e do **Codex** a
 | Docker | `docker compose up -d` | Só observa (execução de missões desligada no container). No Windows, antes: `set VILLAGE_HOST_HOME=%USERPROFILE%` |
 | Desktop (Electron) | `npm run desktop` / `npm run package:desktop` | Empacote no próprio sistema de destino; no macOS o app não é assinado (botão direito › Abrir na primeira vez) |
 
-## Web
+
+## Documentação
+
+O repositório também traz o **Codex Ops Room** original (monitor somente leitura das sessões Codex, em `/`), que preserva a imagem oficial `public/quality-ops-room-reference.webp`.
+
+### Web
 
 Requer Node.js 20+; nenhuma dependência de produção.
 

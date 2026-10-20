@@ -366,6 +366,54 @@ export function mountControlUi({ client, onFountainState, onRefill, onAttention 
     if ([...sel.options].some((o) => o.value === cur)) sel.value = cur;
   }
 
+  // Preserve expanded results across the 5-second live state refresh.
+  const expandedOutputs = new Set();
+  const cachedOutputs = new Map();
+  const pendingOutputs = new Set();
+
+  function missionOutputPanel(m) {
+    if (m.status !== 'completed' && m.status !== 'failed') return null;
+    if (!m.result?.hasOutput) {
+      return el('p', { class: 'small' }, 'Resposta final indisponível. O runtime encerrou sem saída capturada (missões antigas podem precisar ser executadas novamente).');
+    }
+    const url = `/api/village/missions/${encodeURIComponent(m.id)}/output`;
+    const details = el('details', { class: 'mission-result' }, el('summary', {}, 'Ver resposta completa'));
+    details.open = expandedOutputs.has(m.id);
+    const output = el('pre', { class: 'mission-output' }, cachedOutputs.get(m.id) ?? 'Abra para carregar a resposta completa…');
+    const actions = el('div', { class: 'mission-result-actions' },
+      el('a', { href: `${url}?download=1`, download: `mission-${m.id}.md` }, 'Baixar relatório (.md)'),
+      el('button', { type: 'button', onclick: async () => {
+        try {
+          const data = cachedOutputs.get(m.id) ?? await (async () => {
+            const response = await fetch(url, { cache: 'no-store' });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return response.text();
+          })();
+          await navigator.clipboard.writeText(data);
+        } catch { output.textContent = 'Não foi possível copiar. Use Baixar relatório.'; }
+      } }, 'Copiar resposta'));
+    details.append(output, actions);
+    details.addEventListener('toggle', async () => {
+      if (!details.open) { expandedOutputs.delete(m.id); return; }
+      expandedOutputs.add(m.id);
+      if (cachedOutputs.has(m.id)) { output.textContent = cachedOutputs.get(m.id); return; }
+      if (pendingOutputs.has(m.id)) return;
+      pendingOutputs.add(m.id);
+      output.textContent = 'Carregando resposta completa…';
+      try {
+        const response = await fetch(url, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        cachedOutputs.set(m.id, await response.text());
+      } catch (error) {
+        cachedOutputs.set(m.id, `Não foi possível carregar a resposta: ${error.message}`);
+      } finally {
+        pendingOutputs.delete(m.id);
+        if (client.state) renderMissions(client.state);
+      }
+    });
+    return details;
+  }
+
   function renderMissions(state) {
     const list = $('mission-list');
     const items = (state.missions ?? []).map((m) => el('li', { class: `mission st-${m.status}` },
@@ -375,6 +423,7 @@ export function mountControlUi({ client, onFountainState, onRefill, onAttention 
       el('p', {}, m.goal),
       m.usage ? el('p', { class: 'small' }, `Tokens: entrada ${fmtInt(m.usage.input)} · saída ${fmtInt(m.usage.output)}`) : null,
       m.result?.error ? el('p', { class: 'error' }, m.result.error) : null,
+      missionOutputPanel(m),
       m.status === 'running' && !client.lan ? el('button', { type: 'button', onclick: () => client.post(`/api/village/missions/${m.id}/cancel`).catch(() => {}) }, 'Cancelar') : null));
     list.replaceChildren(...(items.length ? items : [el('li', { class: 'small' }, 'Nenhuma missão ainda.')]));
     const ad = $('adapters');

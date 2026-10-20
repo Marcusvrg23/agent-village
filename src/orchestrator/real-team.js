@@ -6,6 +6,13 @@ export const TEAM_ROLES = Object.freeze(['LEAD', 'WORKER']);
 export function runRealTeam({ mission, adapter, onEvent = () => {}, onMessage = () => {},
   onAgentChange = () => {}, onTurnResult = () => {} }) {
   const active = new Map();
+  const guardrails = [
+    'Regras obrigatórias da missão (valem para ambas as sessões):',
+    mission.capsule,
+    'A autorização de edição no nível da missão NÃO autoriza editar nas fases plan, scout e review.',
+    'Não execute commit, push, merge, deploy nem instale dependências; não faça mudanças irreversíveis.',
+    'Não exponha segredos nem inicie subagentes adicionais.',
+  ].join('\n');
   const agents = Object.fromEntries(TEAM_ROLES.map((role) => [role, { role, sessionId: null, turns: 0, status: 'queued' }]));
   let cancelled = false;
   const send = (from, to, kind, text, phase) => {
@@ -81,6 +88,7 @@ export function runRealTeam({ mission, adapter, onEvent = () => {}, onMessage = 
           'Esta é uma sessão INDEPENDENTE da sessão WORKER.',
           'Somente leitura. Analise a missão, identifique arquivos e riscos, e entregue um plano verificável.',
           'Não edite arquivos e não inicie subagentes nem crie sessões extras.',
+          guardrails,
           `Missão: ${mission.prompt}`,
         ].join('\n\n'), 'read'),
         invoke('WORKER', 'scout', [
@@ -88,6 +96,7 @@ export function runRealTeam({ mission, adapter, onEvent = () => {}, onMessage = 
           'Esta é uma sessão INDEPENDENTE da sessão LEAD.',
           'Primeira fase: somente leitura. Explore a base, indique arquivos e testes necessários.',
           'Não edite nesta fase e não inicie subagentes nem crie sessões extras.',
+          guardrails,
           `Missão: ${mission.prompt}`,
         ].join('\n\n'), 'read'),
       ]);
@@ -99,6 +108,7 @@ export function runRealTeam({ mission, adapter, onEvent = () => {}, onMessage = 
         'Mensagem REAL recebida de LEAD:', plan,
         'Seu levantamento anterior:', scouting,
         'Execute apenas o que o operador aprovou, rode verificações cabíveis e relate arquivos, testes e riscos.',
+        guardrails,
         `Pedido original: ${mission.prompt}`,
       ].join('\n\n'), mission.mode);
       send('WORKER', 'LEAD', 'handoff', delivered, 'handoff-execute');
@@ -108,6 +118,7 @@ export function runRealTeam({ mission, adapter, onEvent = () => {}, onMessage = 
         'Mensagem REAL recebida de WORKER:', delivered,
         'Seu plano anterior:', plan,
         'Verifique evidências, resultados de testes e pendências. Não alegue que testes passaram sem confirmação.',
+        guardrails,
         `Pedido original: ${mission.prompt}`,
       ].join('\n\n'), 'read');
       return {

@@ -9,10 +9,10 @@
   Cada agente vira um morador em pixel art; cada projeto ganha uma barraca; a fonte da praça mostra a cota real dos seus planos.
 </p>
 
-<p align="center"><b>Português</b> · <a href="README.en.md">English</a></p>
+<p align="center"><b>Português</b> · <a href="README.en.md">English</a> · <a href="https://marcusvrg23.github.io/agent-village/">Site</a></p>
 
 <p align="center">
-  <a href="https://github.com/Marcusvrg23/agent-village/actions/workflows/test.yml"><img alt="Testes em Windows, macOS e Linux" src="https://github.com/Marcusvrg23/agent-village/actions/workflows/test.yml/badge.svg?branch=feat%2Fagent-village" /></a>
+  <a href="https://github.com/Marcusvrg23/agent-village/actions/workflows/test.yml"><img alt="Testes em Windows, macOS e Linux" src="https://github.com/Marcusvrg23/agent-village/actions/workflows/test.yml/badge.svg?branch=main" /></a>
   <img alt="Node.js 20+" src="https://img.shields.io/badge/node-%E2%89%A520-5fa04e?logo=node.js&logoColor=white" />
   <img alt="Windows, macOS e Linux" src="https://img.shields.io/badge/roda%20em-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-4aa8e8" />
   <img alt="Docker pronto" src="https://img.shields.io/badge/Docker-pronto-2496ed?logo=docker&logoColor=white" />

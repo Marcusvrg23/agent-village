@@ -9,10 +9,10 @@
   Every agent becomes a pixel-art villager; every project gets a tent; the square's fountain shows your plans' real quota.
 </p>
 
-<p align="center"><a href="README.md">Português</a> · <b>English</b></p>
+<p align="center"><a href="README.md">Português</a> · <b>English</b> · <a href="https://marcusvrg23.github.io/agent-village/">Website</a></p>
 
 <p align="center">
-  <a href="https://github.com/Marcusvrg23/agent-village/actions/workflows/test.yml"><img alt="Tests on Windows, macOS and Linux" src="https://github.com/Marcusvrg23/agent-village/actions/workflows/test.yml/badge.svg?branch=feat%2Fagent-village" /></a>
+  <a href="https://github.com/Marcusvrg23/agent-village/actions/workflows/test.yml"><img alt="Tests on Windows, macOS and Linux" src="https://github.com/Marcusvrg23/agent-village/actions/workflows/test.yml/badge.svg?branch=main" /></a>
   <img alt="Node.js 20+" src="https://img.shields.io/badge/node-%E2%89%A520-5fa04e?logo=node.js&logoColor=white" />
   <img alt="Windows, macOS and Linux" src="https://img.shields.io/badge/runs%20on-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-4aa8e8" />
   <img alt="Docker ready" src="https://img.shields.io/badge/Docker-ready-2496ed?logo=docker&logoColor=white" />

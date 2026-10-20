@@ -361,3 +361,9 @@ test('Status line tap: heartbeat says whether Claude Code sent quota; visible te
   assert.match(r.stdout, /5 h 34%/);
   assert.ok(readFileSync(path.join(home, 'usage', '.claude.json'), 'utf8').includes('"five_hour"'));
 });
+
+test('Windows .cmd shims run through a single checked command line (no DEP0190 args array with shell: true)', async () => {
+  const { commandLine, spawnResolved } = await import('../src/orchestrator/proc.js');
+  assert.equal(commandLine('C:\\Program Files\\nodejs\\claude.cmd', ['-p', '--verbose']), '"C:\\Program Files\\nodejs\\claude.cmd" -p --verbose');
+  assert.throws(() => spawnResolved({ file: 'x.cmd', shell: true }, ['ok', 'rm -rf /'], {}), /inseguro/);
+});

@@ -52,7 +52,7 @@ export function runOnce(resolved, args, { cwd, env, input = null, timeoutMs = 20
     let done = false;
     let child;
     try {
-      child = spawn(resolved.file, args, { cwd, env, shell: resolved.shell, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+      child = spawnResolved(resolved, args, { cwd, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
     } catch (error) {
       resolve({ code: null, stdout, stderr: String(error.message), timedOut: false, error: true });
       return;
@@ -71,9 +71,25 @@ export function runOnce(resolved, args, { cwd, env, input = null, timeoutMs = 20
  * Starts a streaming JSONL process. `onEvent(obj)` per JSON line, `onRaw(line)` for non-JSON lines.
  * Returns {child, done: Promise<{code, signal}>, stop(reason)}.
  */
+/**
+ * Starts a resolved command. A .cmd shim (Windows) needs a shell: the command line is built here from the
+ * quoted path plus arguments already checked by SAFE_ARG, instead of passing an args array with
+ * `shell: true` (deprecated in Node, DEP0190, because Node would join them unescaped).
+ */
+export function spawnResolved(resolved, args, options) {
+  if (!resolved.shell) return spawn(resolved.file, args, options);
+  checkArgs(resolved, args);
+  return spawn(commandLine(resolved.file, args), { ...options, shell: true });
+}
+
+/** Pure (tested): "C:\\Program Files\\x\\claude.cmd" -p --verbose */
+export function commandLine(file, args) {
+  return [`"${file}"`, ...args].join(' ');
+}
+
 export function startStream(resolved, args, { cwd, env, input = '', onEvent, onRaw, onStderr } = {}) {
   checkArgs(resolved, args);
-  const child = spawn(resolved.file, args, { cwd, env, shell: resolved.shell, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+  const child = spawnResolved(resolved, args, { cwd, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
   let buf = '';
   child.stdout.setEncoding('utf8');
   child.stdout.on('data', (chunk) => {

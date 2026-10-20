@@ -1,0 +1,45 @@
+name: Agent Village — smoke visual da missão
+
+on:
+  push:
+    branches: [fix/mission-complete-output]
+    paths:
+      - 'scripts/mission-ui-smoke.mjs'
+      - '.github/workflows/mission-ui-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  browser-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser harness
+        run: |
+          npm install --no-save --omit=dev --package-lock=false playwright@1.57.0
+          npx playwright install --with-deps chromium
+      - name: Execute real UI smoke with fake local CLI
+        run: node scripts/mission-ui-smoke.mjs
+      - name: Upload screenshots and JSON smoke report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-village-browser-smoke
+          path: artifacts/mission-smoke/
+          if-no-files-found: warn
+      - name: Preserve screenshots for PR review
+        if: success()
+        run: |
+          mkdir -p docs/screenshots/mission-smoke
+          cp artifacts/mission-smoke/*.png docs/screenshots/mission-smoke/
+          cp artifacts/mission-smoke/smoke-report.json docs/screenshots/mission-smoke/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/screenshots/mission-smoke/
+          git diff --cached --quiet || (git commit -m "docs: screenshots reais do smoke test da missão" && git push origin HEAD:fix/mission-complete-output)

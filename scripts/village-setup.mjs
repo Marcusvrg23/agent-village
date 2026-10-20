@@ -30,6 +30,9 @@ export function settingsPath(env = process.env, home = os.homedir()) {
 }
 
 const quote = (p) => (/[\s"'&()]/.test(p) ? `"${p.replace(/"/g, '\\"')}"` : p);
+// Claude Code runs the status line through Git Bash on Windows, where an unquoted C:\Users\... loses its
+// backslashes. Forward slashes inside quotes read the same in bash, cmd and PowerShell, and Node accepts them.
+const shellPath = (p) => `"${p.replace(/\\/g, '/').replace(/"/g, '\\"')}"`;
 
 /** Pure planner (tested): returns {action, before, after} for a settings object. */
 export function planStatusline(settings, action, nodeBin = process.execPath, tap = TAP) {
@@ -38,9 +41,12 @@ export function planStatusline(settings, action, nodeBin = process.execPath, tap
   const installed = Boolean(cur?.command?.includes(MARK));
   if (action === 'status') return { action, installed, current: cur };
   if (action === 'install') {
-    if (installed) return { action, changed: false, reason: 'já instalado', before: s, after: s };
-    const original = cur?.type === 'command' && typeof cur.command === 'string' ? cur.command : '';
-    const command = `${quote(nodeBin)} ${quote(tap)}${original ? ` -- ${original}` : ''}`;
+    // Reinstall rewrites our own part in place (repairs older commands), keeping the original after " -- ".
+    const i = installed ? cur.command.indexOf(' -- ') : -1;
+    const original = installed ? (i >= 0 ? cur.command.slice(i + 4) : '')
+      : cur?.type === 'command' && typeof cur.command === 'string' ? cur.command : '';
+    const command = `${shellPath(nodeBin)} ${shellPath(tap)}${original ? ` -- ${original}` : ''}`;
+    if (installed && cur.command === command) return { action, changed: false, reason: 'já instalado', before: s, after: s };
     const after = { ...s, statusLine: { ...(cur ?? {}), type: 'command', command } };
     return { action, changed: true, before: s, after };
   }

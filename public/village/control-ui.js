@@ -297,7 +297,7 @@ export function mountControlUi({ client, onFountainState, onRefill, onAttention 
     try {
       const m = await client.post('/api/village/missions', {
         prompt: $('m-prompt').value, cwd: cwdInput.value.trim(), runtime: $('m-runtime').value, mode: form.querySelector('input[name="m-mode"]:checked').value,
-        target: $('m-target').value.trim() || null, authorized: $('m-authorized').checked,
+        target: $('m-target').value.trim() || null, authorized: $('m-authorized').checked, team: $('m-team').checked,
       });
       renderPreflight(m);
     } catch (error) {
@@ -310,7 +310,7 @@ export function mountControlUi({ client, onFountainState, onRefill, onAttention 
     const out = $('preflight');
     const rows = [
       ['Nível SDD', `${m.levelLabel} — ${m.classification.join('; ')}`],
-      ['Pipeline', m.pipeline.join(' → ')],
+      ['Pipeline', m.team ? 'Equipe real · LEAD + WORKER (2 sessões, 4 turnos com handoffs)' : m.pipeline.join(' → ')],
       ['Runtime escolhido', p.adapter ? `${accountName(client.state, p.adapter)} (${m.runtime === 'auto' ? 'automático' : 'escolha manual'})` : 'nenhum elegível'],
       ['Por quê', (p.why ?? []).join(' ')],
       ['Modelo', p.model ?? '—'],
@@ -419,10 +419,12 @@ export function mountControlUi({ client, onFountainState, onRefill, onAttention 
     const items = (state.missions ?? []).map((m) => el('li', { class: `mission st-${m.status}` },
       el('div', { class: 'row' }, el('b', {}, m.levelLabel?.split(' —')[0] ?? m.level), el('span', { class: 'chip' }, MISSION_STATUS[m.status] ?? m.status),
         m.gate ? el('span', { class: `chip gate-${m.gate.status.toLowerCase()}` }, `Gate: ${m.gate.status}`) : null,
-        m.adapter ? el('span', { class: 'small' }, accountName(state, m.adapter)) : null),
+        m.adapter ? el('span', { class: 'small' }, accountName(state, m.adapter)) : null,
+        m.team ? el('span', { class: 'chip' }, 'Equipe real · 2 sessões') : null),
       el('p', {}, m.goal),
       m.usage ? el('p', { class: 'small' }, `Tokens: entrada ${fmtInt(m.usage.input)} · saída ${fmtInt(m.usage.output)}`) : null,
       m.result?.error ? el('p', { class: 'error' }, m.result.error) : null,
+      m.team ? el('button', { type: 'button', onclick: () => openTeam(m.id) }, 'Conversas e sessões da equipe') : null,
       missionOutputPanel(m),
       m.status === 'running' && !client.lan ? el('button', { type: 'button', onclick: () => client.post(`/api/village/missions/${m.id}/cancel`).catch(() => {}) }, 'Cancelar') : null));
     list.replaceChildren(...(items.length ? items : [el('li', { class: 'small' }, 'Nenhuma missão ainda.')]));
@@ -449,6 +451,66 @@ export function mountControlUi({ client, onFountainState, onRefill, onAttention 
     $('open-missions').disabled = true;
     $('open-fountain').title = 'Plano de controle indisponível';
   });
+
+  // Two CLI sessions, real messages and durable handoffs. No generated or fictional chat.
+  const teamDrawer = $('team-log');
+  let openTeamId = null;
+  let openTeamRole = null;
+  let teamLoading = false;
+  function renderTeamDetail(data) {
+    const area = $('team-body');
+    const roles = ['LEAD', 'WORKER'];
+    const agents = data.agents ?? {};
+    const messages = (data.messages ?? []).filter((m) => !openTeamRole || m.from === openTeamRole || m.to === openTeamRole);
+    const tabs = el('div', { class: 'team-tabs' }, ...['TODOS', ...roles].map((role) =>
+      el('button', { type: 'button', 'aria-pressed': String((openTeamRole ?? 'TODOS') === role), onclick: () => {
+        openTeamRole = role === 'TODOS' ? null : role;
+        renderTeamDetail(data);
+      } }, role === 'TODOS' ? 'Todos' : role)));
+    const people = el('div', { class: 'team-agents' }, ...roles.map((role) => {
+      const a = agents[role] ?? {};
+      return el('div', { class: 'team-agent' },
+        el('b', {}, role === 'LEAD' ? 'Líder · LEAD' : 'Executor · WORKER'),
+        el('p', { class: 'small' }, `Sessão: ${a.sessionId || 'aguardando início'}`),
+        el('p', { class: 'small' }, `Estado: ${a.status ?? 'aguardando'} · ${a.turns ?? 0} turnos`));
+    }));
+    const timeline = el('ol', { class: 'team-messages' }, ...messages.map((message) =>
+      el('li', { class: 'team-message' },
+        el('div', { class: 'team-message-meta' }, `${message.from} → ${message.to} · ${message.kind} · ${message.phase} · ${message.at ? new Date(message.at).toLocaleTimeString('pt-BR') : ''}`),
+        el('pre', {}, message.text ?? ''))));
+    area.replaceChildren(people, tabs, timeline);
+    if (!messages.length) area.append(el('p', { class: 'small' }, 'Sem mensagens reais para este filtro.'));
+  }
+  async function refreshTeam() {
+    if (!openTeamId || teamDrawer.hidden || teamLoading || client.lan) return;
+    teamLoading = true;
+    try {
+      const r = await fetch(`/api/village/missions/${encodeURIComponent(openTeamId)}/team`, { cache: 'no-store' });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
+      if (data.missionId === openTeamId) renderTeamDetail(data);
+    } catch (error) {
+      $('team-body').replaceChildren(el('p', { class: 'error' }, `Não foi possível abrir a conversa: ${error.message}`));
+    } finally { teamLoading = false; }
+  }
+  function openTeam(missionId, role = null) {
+    if (client.lan) return;
+    openTeamId = missionId;
+    openTeamRole = role === 'LEAD' || role === 'WORKER' ? role : null;
+    $('team-title').textContent = `Equipe real · ${missionId}`;
+    teamDrawer.hidden = false;
+    drawer.hidden = true;
+    $('team-body').replaceChildren(el('p', { class: 'small' }, 'Carregando sessões reais…'));
+    refreshTeam();
+  }
+  $('team-close').addEventListener('click', () => {
+    teamDrawer.hidden = true; openTeamId = null; drawer.hidden = false;
+  });
+  client.addEventListener('village', (e) => {
+    if (e.detail?.type === 'agent.message' && e.detail.missionId === openTeamId) refreshTeam();
+  });
+  const teamRefresh = setInterval(() => { if (!teamDrawer.hidden) refreshTeam(); }, 5000);
+  window.addEventListener('pagehide', () => clearInterval(teamRefresh), { once: true });
 
   // ---------------------------------------------------------------- phone on the local network
   const phonePanel = $('phone');
@@ -482,7 +544,7 @@ export function mountControlUi({ client, onFountainState, onRefill, onAttention 
   $('open-phone').addEventListener('click', () => { phonePanel.hidden = !phonePanel.hidden; if (!phonePanel.hidden) renderPhone(); });
   $('phone-close').addEventListener('click', () => { phonePanel.hidden = true; });
 
-  return { openFountain, attention: () => attention };
+  return { openFountain, openTeam, attention: () => attention };
 }
 
 /** Pairing screen shown on a phone that is not paired yet. */

@@ -263,7 +263,11 @@ async function serveStatic(requestPath, response) {
 }
 
 // Agent Village control plane: quotas, ledger, adapters, missions (see src/control-http.js).
-const orchestrator = new Orchestrator({ control: flag('VILLAGE_CONTROL') && !IN_DOCKER });
+// Real execution is ON by default (every mission still needs the operator's click in the page, edits need an
+// extra confirmation and the US$ 0 API firewall always applies). VILLAGE_CONTROL=0 starts in draft-only mode.
+// In Docker it stays off: the CLIs and their logins live on the host.
+const offFlag = (name) => String(process.env[name] ?? '').trim() === '0';
+const orchestrator = new Orchestrator({ control: !offFlag('VILLAGE_CONTROL') && !IN_DOCKER });
 // "Precisa de você": requests from the Claude Code / Codex hooks (npm run village:setup -- hooks install).
 const desk = new AttentionDesk();
 const hookToken = randomBytes(24).toString('hex');
@@ -369,7 +373,7 @@ server.listen(PORT, HOST, () => {
   process.parentPort?.postMessage({ type: 'ready', port: actualPort });
   console.log(`[ops-room] http://${HOST}:${actualPort}`);
   console.log(`[ops-room] watching read-only: ${SESSIONS_ROOT}`);
-  console.log(`[village] execução real: ${orchestrator.control ? 'LIGADA (VILLAGE_CONTROL=1, cada missão exige aprovação)' : 'desligada (modo só rascunho)'}`);
+  console.log(`[village] execução real: ${orchestrator.control ? 'LIGADA (cada missão exige sua aprovação; VILLAGE_CONTROL=0 desliga)' : `desligada (modo só rascunho${IN_DOCKER ? ', Docker' : ', VILLAGE_CONTROL=0'})`}`);
   // Where the hooks find this server: port + secret, readable only by this user.
   try {
     mkdirSync(orchestrator.dataDir, { recursive: true });

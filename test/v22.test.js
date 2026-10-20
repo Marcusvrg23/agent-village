@@ -335,7 +335,7 @@ test('Portability: Docker and CI files exist; the server image never enables exe
   const ci = readFileSync(path.join(root, '.github/workflows/test.yml'), 'utf8');
   for (const os of ['ubuntu-latest', 'macos-latest', 'windows-latest']) assert.ok(ci.includes(os));
   const server = readFileSync(path.join(root, 'server.js'), 'utf8');
-  assert.match(server, /flag\('VILLAGE_CONTROL'\) && !IN_DOCKER/);
+  assert.match(server, /!offFlag\('VILLAGE_CONTROL'\) && !IN_DOCKER/, 'execution on by default, off only with VILLAGE_CONTROL=0 or in Docker');
   assert.match(server, /\.trim\(\) === '1'/, 'cmd.exe `set X=1 && ...` keeps a trailing space');
   assert.ok(unix || !unix);
 });
@@ -366,4 +366,11 @@ test('Windows .cmd shims run through a single checked command line (no DEP0190 a
   const { commandLine, spawnResolved } = await import('../src/orchestrator/proc.js');
   assert.equal(commandLine('C:\\Program Files\\nodejs\\claude.cmd', ['-p', '--verbose']), '"C:\\Program Files\\nodejs\\claude.cmd" -p --verbose');
   assert.throws(() => spawnResolved({ file: 'x.cmd', shell: true }, ['ok', 'rm -rf /'], {}), /inseguro/);
+});
+
+test('Execution is on by default when the server starts; VILLAGE_CONTROL=0 is the only way to draft-only', async () => {
+  const s = sandbox();
+  assert.equal(new Orchestrator({ env: s.env, dataDir: path.join(s.home, '.av-a') }).control, true);
+  assert.equal(new Orchestrator({ env: { ...s.env, VILLAGE_CONTROL: '0 ' }, dataDir: path.join(s.home, '.av-b') }).control, false);
+  assert.equal(new Orchestrator({ env: { ...s.env, VILLAGE_CONTROL: '1' }, dataDir: path.join(s.home, '.av-c') }).control, true);
 });

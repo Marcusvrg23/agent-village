@@ -104,7 +104,7 @@ npm run village:setup -- hooks install --yes        # raised hand (permission re
 npm run village:setup -- statusline install --yes   # Claude quota in the Elixir Fountain
 ```
 
-To run real missions, start with `VILLAGE_CONTROL=1`. For the phone, `VILLAGE_LAN=1`. Docker: `docker compose up -d` (watch-only). Desktop app: `npm run package:desktop` on the target system.
+Mission execution is on by default (each mission runs only after you click Approve); `VILLAGE_CONTROL=0` starts in draft-only mode. For the phone, `VILLAGE_LAN=1`. Docker: `docker compose up -d` (watch-only). Desktop app: `npm run package:desktop` on the target system.
 
 Full documentation (in Portuguese): [README.md](README.md#documentação), [privacy and art policy](ART-POLICY.md), [validation report](VILLAGE-V22-VALIDATION.md).
 

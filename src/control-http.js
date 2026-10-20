@@ -1,6 +1,6 @@
 // HTTP control plane for the Agent Village (main port bound to 127.0.0.1 by server.js).
 // Read endpoints are always on; write endpoints exist but real execution only happens when the server was
-// started with VILLAGE_CONTROL=1 AND the operator approves each mission in the page.
+// was not started with VILLAGE_CONTROL=0 (nor in Docker) AND the operator approves each mission in the page.
 // Edge protections (pattern learned from Habblaud's guard, MIT): loopback Host only (DNS rebinding),
 // POST requires application/json + same-origin Origin + per-process CSRF token, small bodies only.
 // Hooks (Claude Code / Codex PermissionRequest and Notification) authenticate with a separate secret kept in

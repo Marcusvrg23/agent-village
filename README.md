@@ -105,7 +105,7 @@ npm run village:setup -- hooks install --yes        # mão levantada (pedidos de
 npm run village:setup -- statusline install --yes   # cota do Claude na Fonte de Elixir
 ```
 
-Para executar missões de verdade, abra com `VILLAGE_CONTROL=1` (Windows: `set VILLAGE_CONTROL=1 && npm run village`). Para o celular, `VILLAGE_LAN=1`.
+A execução de missões já vem ligada: cada missão só roda depois do seu clique em **Aprovar e executar**. Para abrir só em modo rascunho, use `VILLAGE_CONTROL=0` (Windows: `set VILLAGE_CONTROL=0` antes de `npm run village`). Para o celular, `VILLAGE_LAN=1`.
 
 Outras formas de rodar:
 
@@ -178,7 +178,7 @@ Tudo roda no `server.js` local (127.0.0.1). Nenhuma chamada de modelo acontece s
 - **Firewall financeiro (orçamento de API: US$ 0,00):** antes de qualquer execução a vila verifica que o login é pela assinatura (`claude auth status` → `claude.ai`/`oauth_token`; `codex login status` → "Logged in using ChatGPT" + conta `chatgpt`). Cobrança desconhecida ou por API bloqueia. Variáveis de chave de API (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `CODEX_API_KEY` e afins) são removidas do ambiente dos processos filhos. Nunca usa `--bare`.
 - **Roteamento automático:** escolhe entre Claude Code e Codex pela cota real restante (e, depois de 3 missões, pela taxa de aceitação medida); máximo de 3 agentes, sem execução duplicada; cota esgotada → *aguardando cota*; um único fallback seguro. Escolha manual continua sujeita ao firewall.
 - **Missões (✎ Missão):** prompt + pasta do projeto + runtime + permissão (somente leitura / pode editar). *Analisar (grátis)* classifica no Adaptive SDD (S0–S4), monta a cápsula de contexto e mostra o preflight (runtime, motivo, risco, "Gasto de API permitido: US$ 0"). *Aprovar e executar* aparece só quando tudo está verificado; editar exige marcar a autorização. Ao final, o Release Gate avalia execução, cobrança, permissões, escopo, testes e verdade visual (READY / PARTIAL / BLOCKED).
-  - Por padrão a vila fica em **modo só rascunho** (nada é executado; dá para copiar o prompt). Para permitir execução real: `set VILLAGE_CONTROL=1 && npm run village` (Prompt de Comando) ou `$env:VILLAGE_CONTROL=1; npm run village` (PowerShell).
+  - A execução real vem **ligada** ao iniciar a vila, e cada missão continua exigindo sua aprovação (e confirmação extra para editar). Para abrir em **modo só rascunho** (nada é executado; dá para copiar o prompt): `VILLAGE_CONTROL=0` (Prompt de Comando: `set VILLAGE_CONTROL=0` e depois `npm run village`). No Docker fica sempre desligada.
   - Pastas permitidas: sua pasta pessoal, ou a lista em `VILLAGE_PROJECT_ROOTS` (separadas por `;`).
 - **Context Vault:** cada missão grava spec, cápsula, eventos, auditoria e `release.md` em `~/.agent-village/orchestrator` (segredos mascarados); o uso de tokens fica em `~/.agent-village/ledger/usage.jsonl`, sem apagar histórico.
 - **REA (engenharia reversa):** só para alvo binário que você marcar como seu/autorizado. A vila não instala o REA; se a CLI `rea` não estiver no PATH, a missão segue só com análise de fonte e a evidência binária fica como desconhecida.
@@ -253,7 +253,7 @@ No macOS ou no Linux: `npm ci && npm run package:desktop` (empacota para o siste
 
 Abra `release/Codex Ops Room-win32-x64/Codex Ops Room.exe`. Mantenha a pasta inteira junto do executável: é um aplicativo portátil em pasta, não um instalador ou executável único. A distribuição não inclui node_modules, testes ou cópias dos rollouts. A máquina de destino não precisa ter Node instalado.
 
-O Electron é somente shell: inicia o mesmo `server.js` usando o Node embutido e abre a Agent Village (`/village/`); `--ops-room` abre a tela original. Para execução real de missões no aplicativo, defina `VILLAGE_CONTROL=1` antes de abri-lo. Seleciona automaticamente uma porta livre em `127.0.0.1`; a URL aparece no título. Fechar a janela encerra somente o backend pertencente àquela janela. Nenhuma sessão Codex é encerrada.
+O Electron é somente shell: inicia o mesmo `server.js` usando o Node embutido e abre a Agent Village (`/village/`); `--ops-room` abre a tela original. A execução de missões vem ligada (cada missão pede sua aprovação); `VILLAGE_CONTROL=0` antes de abrir deixa o app em modo rascunho. Seleciona automaticamente uma porta livre em `127.0.0.1`; a URL aparece no título. Fechar a janela encerra somente o backend pertencente àquela janela. Nenhuma sessão Codex é encerrada.
 
 O renderer usa sandbox, context isolation, Node desabilitado e bloqueio de requisições/navegação externas. O perfil normal pertence somente a Codex Ops Room no diretório de aplicativos do Windows; não usa `.codex` para armazenamento. O modo `--smoke-test` abre uma janela oculta, verifica a imagem, SSE e rollout real do Ops Room e também a vila (canvas, plano de controle, orçamento US$ 0) e grava o resultado na pasta indicada por `OPS_ROOM_SMOKE_DIR` (ou no temporário do sistema).
 

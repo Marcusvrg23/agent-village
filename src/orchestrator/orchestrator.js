@@ -38,7 +38,7 @@ export function checkProjectDir(cwd, roots) {
 }
 
 export class Orchestrator extends EventEmitter {
-  constructor({ env = process.env, dataDir = villageDataDir(env), adapters = null, control = String(env.VILLAGE_CONTROL ?? '').trim() === '1', now = () => Date.now() } = {}) {
+  constructor({ env = process.env, dataDir = villageDataDir(env), adapters = null, control = String(env.VILLAGE_CONTROL ?? '').trim() !== '0', now = () => Date.now() } = {}) {
     super();
     this.env = env;
     this.now = now;
@@ -230,7 +230,7 @@ export class Orchestrator extends EventEmitter {
   async approve(id, { confirmEdit = false } = {}) {
     const mission = this.missions.get(id);
     if (!mission) throw Object.assign(new Error('Missão não encontrada.'), { status: 404 });
-    if (!this.control) throw Object.assign(new Error('Execução desligada: inicie a vila com VILLAGE_CONTROL=1 para permitir execução real.'), { status: 403 });
+    if (!this.control) throw Object.assign(new Error('Execução desligada (a vila foi iniciada com VILLAGE_CONTROL=0 ou no Docker): abra a vila sem essa variável para permitir execução real.'), { status: 403 });
     if (this.running.has(id)) throw Object.assign(new Error('Missão já em execução: execução duplicada negada.'), { status: 409 });
     if (!['draft', 'waiting_for_quota', 'queued', 'interrupted', 'failed'].includes(mission.status)) throw Object.assign(new Error(`Missão em estado ${mission.status}.`), { status: 409 });
     if (mission.blockers.length) throw Object.assign(new Error(mission.blockers.join(' ')), { status: 400 });

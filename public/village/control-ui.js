@@ -323,7 +323,7 @@ export function mountControlUi({ client, onFountainState, onRefill, onAttention 
       actions.append(el('button', { type: 'button', onclick: () => copyPrompt(m) }, 'Copiar prompt para o Claude Code/Codex'));
       actions.append(el('p', { class: 'small' }, client.state?.control
         ? 'Execução indisponível para esta missão (veja os motivos acima).'
-        : 'Modo só rascunho: a vila não executa nada. Para permitir execução real, feche a vila e inicie com VILLAGE_CONTROL=1 (veja o README).'));
+        : 'Modo só rascunho: esta vila foi aberta com VILLAGE_CONTROL=0 (ou no Docker). Para executar, feche e abra de novo sem essa variável.'));
     }
     out.replaceChildren(dl, blockers ?? '', notes ?? '', actions);
   }

@@ -13,7 +13,7 @@ import { QuotaStore } from './quota.js';
 import { probeRea, reaAuthorization } from './rea.js';
 import { POLICY, fallbackAfterFailure, route, runtimeOf } from './router.js';
 import { classify, compileCapsule, isBinaryTarget, specTemplate } from './sdd.js';
-import { readClaudeStatusline, scanClaudeSessions, scanCodex, statuslineDir, villageDataDir } from './sources.js';
+import { readClaudeStatusline, readTapStatus, scanClaudeSessions, scanCodex, statuslineDir, villageDataDir } from './sources.js';
 import { ContextVault, newMissionId, redact } from './vault.js';
 
 const PROBE_TTL_MS = 5 * 60_000;
@@ -83,6 +83,13 @@ export class Orchestrator extends EventEmitter {
   #claudeQuota(account, now) {
     const dir = statuslineDir(this.env);
     return readClaudeStatusline(dir, now, account.captureId) ?? (this.accounts.claude.length === 1 ? readClaudeStatusline(dir, now) : undefined);
+  }
+
+  /** Diagnostics for the Fountain: did the status line tap run, and did Claude Code send quota data? */
+  #tapStatus() {
+    const out = {};
+    for (const acc of this.accounts.claude) out[acc.key] = readTapStatus(statuslineDir(this.env), acc.captureId);
+    return out;
   }
 
   #quotaViews(now) {
@@ -156,7 +163,12 @@ export class Orchestrator extends EventEmitter {
     }
     for (const key of keys.filter((k) => runtimeOf({ id: k, runtime: this.adapters[k].runtime }) === 'claude-code')) {
       const name = this.adapters[key].label ?? key;
-      notes.push(this.quotas.view(key, now).snapshot ? `${name}: captura do statusline lida.` : `${name}: sem captura do statusline (rode \`npm run village:setup -- statusline install\`).`);
+      const acc = this.accounts.claude.find((a) => a.key === key);
+      const tap = acc ? readTapStatus(statuslineDir(this.env), acc.captureId) : null;
+      notes.push(this.quotas.view(key, now).snapshot ? `${name}: captura do statusline lida.`
+        : tap && !tap.rateLimits ? `${name}: o status line está rodando, mas o Claude Code ainda não enviou a cota (só vem em contas Pro/Max, depois de uma resposta).`
+          : tap ? `${name}: o status line recebeu a cota, mas a vila não conseguiu ler o arquivo.`
+            : `${name}: o coletor do status line nunca rodou (instale com \`npm run village:setup -- statusline install --yes\` e abra o Claude Code no terminal).`);
     }
     const view = this.quotas.publicView(this.now(), keys);
     for (const p of keys) {
@@ -338,7 +350,7 @@ export class Orchestrator extends EventEmitter {
   state() {
     const now = this.now();
     return {
-      control: this.control, policy: POLICY, accounts: this.accountList(), quotas: this.quotas.publicView(now, this.keys()), ledger: this.ledger.totals(), adapters: this.publicProbes(), rea: this.rea,
+      control: this.control, policy: POLICY, accounts: this.accountList(), claudeTap: this.#tapStatus(), quotas: this.quotas.publicView(now, this.keys()), ledger: this.ledger.totals(), adapters: this.publicProbes(), rea: this.rea,
       missions: [...this.missions.values()].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, 15).map((m) => this.publicMission(m)),
       running: [...this.running.keys()],
       observed: {

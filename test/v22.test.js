@@ -339,3 +339,25 @@ test('Portability: Docker and CI files exist; the server image never enables exe
   assert.match(server, /\.trim\(\) === '1'/, 'cmd.exe `set X=1 && ...` keeps a trailing space');
   assert.ok(unix || !unix);
 });
+
+test('Status line tap: heartbeat says whether Claude Code sent quota; visible text when there is no other status line; BOM tolerated', async () => {
+  const { writeTapStatus, statusText } = await import('../scripts/claude-statusline-tap.mjs');
+  const { readTapStatus } = await import('../src/orchestrator/sources.js');
+  const dir = tmp('tap-');
+  const input = { transcript_path: '/home/u/.claude/projects/p/s.jsonl' };
+  writeTapStatus(input, dir, 1_000);
+  assert.deepEqual(readTapStatus(dir, '.claude'), { seenAt: 1_000, rateLimits: false });
+  assert.match(statusText(input), /aguardando a cota/);
+  const withQuota = { ...input, rate_limits: { five_hour: { used_percentage: 34, resets_at: 1 }, seven_day: { used_percentage: 61, resets_at: 2 } } };
+  writeTapStatus(withQuota, dir, 2_000);
+  assert.equal(readTapStatus(dir, '.claude').rateLimits, true);
+  assert.equal(statusText(withQuota), '⛲ Agent Village · 5 h 34% · semana 61%');
+  // the real script, fed through a pipe with a UTF-8 BOM (as Windows PowerShell can send)
+  const { spawnSync } = await import('node:child_process');
+  const home = tmp('taphome-');
+  const r = spawnSync(process.execPath, [path.join(root, 'scripts/claude-statusline-tap.mjs')], {
+    input: `﻿${JSON.stringify(withQuota)}`, env: { ...process.env, AGENT_VILLAGE_HOME: home }, encoding: 'utf8',
+  });
+  assert.match(r.stdout, /5 h 34%/);
+  assert.ok(readFileSync(path.join(home, 'usage', '.claude.json'), 'utf8').includes('"five_hour"'));
+});

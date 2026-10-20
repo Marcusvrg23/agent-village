@@ -75,6 +75,24 @@ export class ContextVault {
     return existsSync(file) ? readFileSync(file, 'utf8') : null;
   }
 
+  /** Durable team message bus: actual submitted prompts/replies/handoffs, not invented avatar chatter. */
+  appendTeamMessage(id, message) {
+    const entry = { ...message, text: redact(message.text) };
+    appendFileSync(path.join(this.dir(id), 'team-conversation.jsonl'), `${JSON.stringify(entry)}\n`);
+  }
+
+  teamMessages(id) {
+    const file = path.join(this.dir(id), 'team-conversation.jsonl');
+    if (!existsSync(file)) return [];
+    return readFileSync(file, 'utf8').split('\n').filter(Boolean).flatMap((line) => {
+      try { return [JSON.parse(line)]; } catch { return []; }
+    });
+  }
+
+  clearTeamMessages(id) {
+    rmSync(path.join(this.dir(id), 'team-conversation.jsonl'), { force: true });
+  }
+
   /** Measured acceptance per provider (for routing). Only gate outcomes count, never guesses. */
   history() {
     const out = {};

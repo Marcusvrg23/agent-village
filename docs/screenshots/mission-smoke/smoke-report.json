@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "branch": "fix/mission-complete-output",
+  "missionId": "M-20261020-162757-vdtd",
+  "status": "completed",
+  "gate": "READY",
+  "outputBytes": 15504,
+  "truncated": false,
+  "screenshotDetail": "agent-village-resultado-completo.png",
+  "screenshotWorld": "agent-village-panorama.png",
+  "browserErrors": []
+}

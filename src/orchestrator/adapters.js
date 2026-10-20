@@ -90,7 +90,7 @@ export class ClaudeCodeAdapter {
     const args = ['-p', '--output-format', 'stream-json', '--verbose', '--permission-mode', mode === 'edit' ? 'acceptEdits' : 'plan', '--permission-prompts', 'none'];
     if (resumeSession && /^[\w-]+$/.test(resumeSession)) args.push('--resume', resumeSession);
     if (name && /^[\w.-]+$/.test(name)) args.push('--name', name);
-    const result = { ok: false, sessionId: resumeSession, usage: null, perMsg: new Map(), denials: 0, error: null, model: null, isError: false };
+    const result = { ok: false, sessionId: resumeSession, usage: null, perMsg: new Map(), denials: 0, error: null, model: null, isError: false, resultText: null };
     const commands = new Map(); // Bash tool_use_id -> running command (for the waiting animations)
     const handle = startStream(bin, args, {
       cwd, env: this.env, input: prompt,
@@ -107,6 +107,9 @@ export class ClaudeCodeAdapter {
         } else if (e.type === 'assistant' && e.message) {
           const m = e.message;
           if (m.id && m.usage) result.perMsg.set(m.id, usageFromClaude(m.usage));
+          // Keep the latest human-readable assistant message as fallback if an older CLI omits result.result.
+          const answer = (Array.isArray(m.content) ? m.content : []).filter((b) => b?.type === 'text' && typeof b.text === 'string').map((b) => b.text).join('\n');
+          if (answer.trim() && !e.parent_tool_use_id) result.lastAssistantText = answer;
           for (const b of Array.isArray(m.content) ? m.content : []) {
             if (b?.type !== 'tool_use') continue;
             const st = claudeToolState(b.name, b.input ?? {});
@@ -133,7 +136,7 @@ export class ClaudeCodeAdapter {
           result.ok = e.subtype === 'success' && !e.is_error;
           result.usage = e.usage ? usageFromClaude(e.usage) : null;
           result.denials = Array.isArray(e.permission_denials) ? e.permission_denials.length : result.denials;
-          result.resultText = typeof e.result === 'string' ? e.result.slice(0, 4_000) : null;
+          result.resultText = typeof e.result === 'string' ? e.result : (result.lastAssistantText ?? null);
           onEvent({ type: 'result', provider: this.runtime, account: this.account?.id ?? null, ok: result.ok, sessionId: result.sessionId });
         }
       },
@@ -148,6 +151,8 @@ export class ClaudeCodeAdapter {
       if (error && !result.error) result.error = error;
       if (code !== 0 && !result.error) result.error = `Claude Code saiu com código ${code}.`;
       if (result.error) result.ok = false;
+      result.resultText ??= result.lastAssistantText ?? null;
+      delete result.lastAssistantText;
       delete result.perMsg;
       return result;
     });
@@ -287,7 +292,7 @@ export class CodexAdapter {
     const bin = resolveCommand(this.command, { env: this.baseEnv });
     if (!bin) throw new Error('CLI `codex` não encontrada.');
     const args = ['exec', '--json', '--skip-git-repo-check', '--sandbox', mode === 'edit' ? 'workspace-write' : 'read-only', '-'];
-    const result = { ok: false, sessionId: null, usage: null, error: null, turns: 0 };
+    const result = { ok: false, sessionId: null, usage: null, error: null, turns: 0, resultText: null };
     const handle = startStream(bin, args, {
       cwd, env: this.env, input: prompt,
       onEvent: (e) => {
@@ -295,6 +300,10 @@ export class CodexAdapter {
           result.sessionId = e.thread_id ?? null;
           onEvent({ type: 'session', provider: this.runtime, account: this.account?.id ?? null, sessionId: result.sessionId });
         } else if (e.type === 'item.started' || e.type === 'item.completed') {
+          // Codex emits its final answer as a completed agent_message item, not in turn.completed.
+          if (e.type === 'item.completed' && e.item?.type === 'agent_message' && typeof e.item.text === 'string' && e.item.text.trim()) {
+            result.resultText = result.resultText ? `${result.resultText}\n\n${e.item.text}` : e.item.text;
+          }
           const st = codexItemState(e.item);
           const isCmd = e.item?.type === 'command_execution';
           if (st && e.type === 'item.started') {

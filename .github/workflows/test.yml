@@ -42,3 +42,29 @@ jobs:
           curl -fsS http://127.0.0.1:4173/api/village/state | grep -q '"control":false'
       - if: always()
         run: docker compose logs
+
+
+  visual-smoke:
+    name: Screenshot real da missão (Chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar Chromium e harness
+        run: |
+          npm install --no-save --omit=dev --package-lock=false playwright@1.57.0
+          npx playwright install --with-deps chromium
+      - name: Smoke real em navegador
+        run: node scripts/mission-ui-smoke.mjs
+      - name: Guardar imagens e diagnóstico
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-village-smoke-visual
+          path: artifacts/mission-smoke/
+          if-no-files-found: warn

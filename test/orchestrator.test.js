@@ -257,9 +257,10 @@ test('Adaptive SDD: S0 stays light, binaries go S3 with REA, risky work goes S4;
 
 test('Release Gate: READY only with everything verified; unverified tests/review make it PARTIAL; failures BLOCK', () => {
   const base = { level: 'S1', mode: 'edit', adapter: 'codex', billingVerified: true };
-  assert.equal(evaluateGate(base, { ok: true, states: ['testing'] }).status, 'READY');
+  assert.equal(evaluateGate(base, { ok: true, states: ['testing'], hasOutput: true }).status, 'READY');
+  assert.equal(evaluateGate(base, { ok: true, states: ['testing'], hasOutput: false }).status, 'PARTIAL', 'a completed turn without an answer is not a verified delivery');
   assert.equal(evaluateGate(base, { ok: true, states: ['working'] }).status, 'PARTIAL');
-  assert.equal(evaluateGate({ ...base, level: 'S2' }, { ok: true, states: ['testing'] }).status, 'PARTIAL', 'S2 needs an independent review');
+  assert.equal(evaluateGate({ ...base, level: 'S2' }, { ok: true, states: ['testing'], hasOutput: true }).status, 'PARTIAL', 'S2 needs an independent review');
   assert.equal(evaluateGate(base, { ok: false, error: 'x' }).status, 'BLOCKED');
   assert.equal(evaluateGate({ ...base, billingVerified: false }, { ok: true, states: ['testing'] }).status, 'BLOCKED');
   assert.match(redact('token sk-ant-abcdefghijklmnop1234 aqui'), /\[segredo removido\]/);
@@ -309,6 +310,52 @@ test('E2E: draft is free; execution needs VILLAGE_CONTROL + approval; prompt goe
   const vaultDir = path.join(s.home, '.agent-village2', 'orchestrator', 'missions', m.id);
   for (const f of ['mission.json', 'events.jsonl', 'release.md']) assert.ok(existsSync(path.join(vaultDir, f)), f);
   assert.match(readFileSync(path.join(s.home, '.agent-village2', 'orchestrator', 'audit.jsonl'), 'utf8'), /"action":"approve"/);
+});
+
+test('E2E: full answers from Claude and Codex are durable, gate-checked and available by loopback download', async (t) => {
+  for (const runtime of ['claude-code', 'codex']) {
+    const answer = `# Relatório ${runtime}\n\n${'Prova completa e detalhes. '.repeat(500)}\nFIM DO RELATÓRIO`;
+    const s = sandbox({ FAKE_RESULT_TEXT: answer });
+    const o = new Orchestrator({ env: s.env, dataDir: path.join(s.home, '.av'), control: true });
+    const m = await o.draft({ prompt: 'Corrija o bug do login e rode os testes', cwd: s.proj, runtime });
+    await o.approve(m.id);
+    const done = await waitFor(() => {
+      const x = o.missions.get(m.id);
+      return x?.status === 'completed' && !o.running.has(m.id) ? x : null;
+    });
+    assert.equal(done.adapter, runtime);
+    assert.equal(done.gate.status, 'READY');
+    assert.equal(done.gate.checks.find((c) => c.id === 'delivery').status, 'PASS');
+    assert.equal(done.result.hasOutput, true);
+    assert.equal(done.result.summary.length, 800);
+    const file = path.join(s.home, '.av', 'orchestrator', 'missions', m.id, 'result.md');
+    assert.equal(readFileSync(file, 'utf8'), answer, 'the full answer is never truncated');
+    assert.equal(o.missionOutput(m.id), answer);
+    assert.ok(o.publicMission(done).result.summary.length <= 800, 'recurring SSE stays small');
+    const reopened = new Orchestrator({ env: s.env, dataDir: path.join(s.home, '.av'), control: false });
+    assert.equal(reopened.missionOutput(m.id), answer, 'result survives a server restart');
+
+    const cp = createControlPlane(o, { token: 'test-secret' });
+    const server = http.createServer(async (req, res) => {
+      if (!(await cp.handle(req, res, new URL(req.url, 'http://localhost')))) res.writeHead(404).end();
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    t.after(() => { cp.close(); server.close(); });
+    const port = server.address().port;
+    const req = (host) => new Promise((resolve, reject) => {
+      http.get({ hostname: '127.0.0.1', port, path: `/api/village/missions/${m.id}/output?download=1`, headers: { Host: host } }, (res) => {
+        let body = '';
+        res.setEncoding('utf8');
+        res.on('data', (chunk) => { body += chunk; });
+        res.on('end', () => resolve({ code: res.statusCode, headers: res.headers, body }));
+      }).on('error', reject);
+    });
+    const success = await req(`127.0.0.1:${port}`);
+    assert.equal(success.code, 200);
+    assert.equal(success.body, answer);
+    assert.match(success.headers['content-disposition'], /attachment/);
+    assert.equal((await req('evil.example')).code, 403, 'LAN/remote hosts cannot fetch results');
+  }
 });
 
 test('E2E: API-billed logins are never executed; quota exhaustion falls back once to the other subscription', async () => {

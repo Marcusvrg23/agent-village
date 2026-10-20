@@ -7,6 +7,7 @@ export function evaluateGate(mission, observed) {
   const checks = [];
   const add = (id, label, status, detail) => checks.push({ id, label, status, detail });
   add('execution', 'Execução no runtime', observed.ok ? 'PASS' : 'FAIL', observed.ok ? `Concluída em ${mission.adapter}.` : observed.error ?? 'Execução falhou.');
+  add('delivery', 'Resposta final capturada', observed.hasOutput ? 'PASS' : 'UNVERIFIED', observed.hasOutput ? 'Saída textual armazenada no Context Vault.' : 'O runtime terminou sem resposta final capturada; entrega incompleta.');
   add('billing', 'Firewall financeiro (US$ 0 de API)', mission.billingVerified ? 'PASS' : 'FAIL', mission.billingVerified ? 'Executado pela assinatura verificada.' : 'Cobrança não verificada.');
   add('permissions', 'Permissões respeitadas', 'PASS', observed.denials ? `${observed.denials} ação(ões) negada(s) por falta de aprovação (o modo aprovado foi respeitado).` : 'Nenhuma ação fora do modo aprovado.');
   if (mission.mode === 'read') add('scope', 'Somente leitura', 'PASS', mission.adapter === 'codex' ? 'Sandbox read-only.' : 'Permission mode plan.');

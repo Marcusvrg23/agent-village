@@ -171,6 +171,11 @@ button.primary { background: rgba(255, 226, 140, 0.25) !important; border-color:
 .mission { border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 8px; padding: 6px 8px; }
 .mission .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .mission p { margin: 4px 0; }
+.mission-result { margin-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.16); padding-top: 6px; }
+.mission-result summary { cursor: pointer; color: #b5d9ff; font-weight: 700; }
+.mission-output { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 480px; overflow: auto; padding: 10px; border-radius: 8px; background: rgba(0, 0, 0, 0.35); font: 12px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace; user-select: text; }
+.mission-result-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.mission-result-actions a, .mission-result-actions button { font: inherit; font-size: 12px; color: #b5d9ff; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
 
 .attention-stack {
   position: absolute; z-index: 5; right: 12px; bottom: 12px; width: min(380px, calc(100vw - 24px));

@@ -55,7 +55,7 @@ async function claude() {
     out({ type: 'assistant', parent_tool_use_id: null, message: { id: 'msg2', model: 'claude-test', usage: { input_tokens: 20, output_tokens: 15 },
       content: [{ type: 'tool_use', id: 't2', name: 'Bash', input: { command: 'npm test' } }] } });
     if (run === 'fail') { out({ type: 'result', subtype: 'error_during_execution', is_error: true, session_id: 'sess-claude-1' }); return 1; }
-    out({ type: 'result', subtype: 'success', is_error: false, session_id: 'sess-claude-1', result: 'Feito. Testes passaram.', usage: { input_tokens: 30, cache_read_input_tokens: 90, output_tokens: 20 } });
+    out({ type: 'result', subtype: 'success', is_error: false, session_id: 'sess-claude-1', result: process.env.FAKE_RESULT_TEXT ?? 'Feito. Testes passaram.', usage: { input_tokens: 30, cache_read_input_tokens: 90, output_tokens: 20 } });
     return 0;
   }
   log();
@@ -114,7 +114,7 @@ async function codex() {
     out({ type: 'item.completed', item: { id: 'i1', type: 'command_execution', command: 'npm test', exit_code: 0 } });
     if (run === 'quota') { out({ type: 'turn.failed', error: { message: "You've hit your usage limit." } }); return 1; }
     if (run === 'fail') { out({ type: 'error', message: 'boom' }); return 1; }
-    out({ type: 'item.completed', item: { id: 'i2', type: 'agent_message', text: 'ok' } });
+    out({ type: 'item.completed', item: { id: 'i2', type: 'agent_message', text: process.env.FAKE_RESULT_TEXT ?? 'ok' } });
     out({ type: 'turn.completed', usage: { input_tokens: 100, cached_input_tokens: 80, output_tokens: 10, reasoning_output_tokens: 3 } });
     return 0;
   }

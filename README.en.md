@@ -17,6 +17,7 @@
   <img alt="Windows, macOS and Linux" src="https://img.shields.io/badge/runs%20on-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-4aa8e8" />
   <img alt="Docker ready" src="https://img.shields.io/badge/Docker-ready-2496ed?logo=docker&logoColor=white" />
   <img alt="Zero runtime dependencies" src="https://img.shields.io/badge/runtime%20dependencies-0-f08a3c" />
+  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-a77bf3" /></a>
   <img alt="API spend: US$ 0" src="https://img.shields.io/badge/API%20spend-US%24%200.00-5ee6a8" />
 </p>
 
@@ -106,3 +107,7 @@ npm run village:setup -- statusline install --yes   # Claude quota in the Elixir
 To run real missions, start with `VILLAGE_CONTROL=1`. For the phone, `VILLAGE_LAN=1`. Docker: `docker compose up -d` (watch-only). Desktop app: `npm run package:desktop` on the target system.
 
 Full documentation (in Portuguese): [README.md](README.md#documentação), [privacy and art policy](ART-POLICY.md), [validation report](VILLAGE-V22-VALIDATION.md).
+
+## License
+
+[MIT](LICENSE). Village art follows the [art policy](ART-POLICY.md).

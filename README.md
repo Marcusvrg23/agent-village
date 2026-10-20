@@ -17,6 +17,7 @@
   <img alt="Windows, macOS e Linux" src="https://img.shields.io/badge/roda%20em-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-4aa8e8" />
   <img alt="Docker pronto" src="https://img.shields.io/badge/Docker-pronto-2496ed?logo=docker&logoColor=white" />
   <img alt="Zero dependências de produção" src="https://img.shields.io/badge/depend%C3%AAncias%20de%20produ%C3%A7%C3%A3o-0-f08a3c" />
+  <a href="LICENSE"><img alt="Licença MIT" src="https://img.shields.io/badge/licen%C3%A7a-MIT-a77bf3" /></a>
   <img alt="Gasto de API: US$ 0" src="https://img.shields.io/badge/gasto%20de%20API-US%24%200%2C00-5ee6a8" />
 </p>
 
@@ -114,6 +115,10 @@ Outras formas de rodar:
 | Docker | `docker compose up -d` | Só observa (execução de missões desligada no container). No Windows, antes: `set VILLAGE_HOST_HOME=%USERPROFILE%` |
 | Desktop (Electron) | `npm run desktop` / `npm run package:desktop` | Empacote no próprio sistema de destino; no macOS o app não é assinado (botão direito › Abrir na primeira vez) |
 
+
+## Licença
+
+[MIT](LICENSE). A arte da vila segue a [política de arte](ART-POLICY.md).
 
 ## Documentação
 

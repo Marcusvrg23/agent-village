@@ -6,12 +6,21 @@ import { fileURLToPath } from 'node:url';
 import { EventNormalizer, ROLES } from './src/event-normalizer.js';
 import { SessionWatcher } from './src/session-watcher.js';
 import { AgentRegistry, readSessionMetadata } from './src/agent-registry.js';
+import { Orchestrator } from './src/orchestrator/orchestrator.js';
+import { createControlPlane } from './src/control-http.js';
+import { AttentionDesk } from './src/attention.js';
+import { LanPairing } from './src/lan.js';
+import { randomBytes } from 'node:crypto';
+import { mkdirSync, rmSync, writeFileSync, chmodSync } from 'node:fs';
 
-const HOST = '127.0.0.1';
+// In Docker the server listens inside the container and the port is published only on the host's 127.0.0.1
+// (docker-compose.yml). Real execution is always off there: the CLIs and their logins live on the host.
+const IN_DOCKER = process.env.VILLAGE_IN_DOCKER === '1';
+const HOST = IN_DOCKER ? '0.0.0.0' : '127.0.0.1';
 const PORT = Number.parseInt(process.env.OPS_ROOM_PORT ?? '4173', 10);
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_ROOT = path.join(ROOT, 'public');
-const SESSIONS_ROOT = path.join(os.homedir(), '.codex', 'sessions');
+const SESSIONS_ROOT = path.join(process.env.CODEX_HOME || path.join(os.homedir(), '.codex'), 'sessions');
 const ACTIVITY_LIMIT = 24;
 
 const MIME = {
@@ -220,7 +229,8 @@ const watcher = new SessionWatcher({
 });
 
 async function serveStatic(requestPath, response) {
-  const normalizedPath = requestPath === '/' ? '/index.html' : requestPath;
+  // Directory URLs serve their index.html (/ -> Ops Room, /village/ -> Agent Village).
+  const normalizedPath = requestPath.endsWith('/') ? `${requestPath}index.html` : requestPath;
   let decoded;
   try {
     decoded = decodeURIComponent(normalizedPath);
@@ -241,7 +251,8 @@ async function serveStatic(requestPath, response) {
       'Content-Type': MIME[path.extname(filePath).toLowerCase()] ?? 'application/octet-stream',
       'Cache-Control': path.extname(filePath) === '.webp' ? 'public, max-age=3600' : 'no-store',
       'X-Content-Type-Options': 'nosniff',
-      'Content-Security-Policy': "default-src 'self'; img-src 'self'; connect-src 'self'; style-src 'self'; script-src 'self'",
+      // data: images only for avatar looks imported in this browser (🎨, stored locally, never fetched).
+      'Content-Security-Policy': "default-src 'self'; img-src 'self' data:; connect-src 'self'; style-src 'self'; script-src 'self'",
     });
     response.end(body);
   } catch {
@@ -249,8 +260,39 @@ async function serveStatic(requestPath, response) {
   }
 }
 
+// Agent Village control plane: quotas, ledger, adapters, missions (see src/control-http.js).
+const orchestrator = new Orchestrator({ control: process.env.VILLAGE_CONTROL === '1' && !IN_DOCKER });
+// "Precisa de você": requests from the Claude Code / Codex hooks (npm run village:setup -- hooks install).
+const desk = new AttentionDesk();
+const hookToken = randomBytes(24).toString('hex');
+const HOOK_FILE = path.join(orchestrator.dataDir, 'hook.json');
+// Phone on the local network: opt-in second port (the main one stays on 127.0.0.1).
+const LAN_ON = process.env.VILLAGE_LAN === '1' && !IN_DOCKER;
+const LAN_PORT = Number.parseInt(process.env.VILLAGE_LAN_PORT ?? String(PORT === 0 ? 0 : PORT + 1), 10);
+const lan = LAN_ON ? new LanPairing() : null;
+const control = createControlPlane(orchestrator, { desk, hookToken, lan, lanPort: () => lanServer?.address()?.port ?? LAN_PORT });
+function pollVillage() {
+  orchestrator.poll();
+  // A Claude session that moved again is no longer "waiting for you in the terminal".
+  for (const item of desk.list()) {
+    if (item.type !== 'notice') continue;
+    const s = orchestrator.claudeSessions.find((x) => x.id === item.sessionId);
+    if (s && (Date.parse(s.lastAt ?? 0) || 0) > item.createdAt + 1_000) desk.clearSession(item.provider, item.sessionId);
+  }
+}
+const pollTimer = setInterval(() => { try { pollVillage(); } catch (error) { console.error(`[village] poll: ${error.message}`); } }, 10_000);
+pollTimer.unref();
+setTimeout(() => {
+  try { pollVillage(); } catch { /* sources may not exist yet */ }
+  // Quota read via `codex app-server` (account/rateLimits/read: no model turn, no tokens) once the
+  // subscription is verified, then every 15 min; the Claude quota comes from the status line tap.
+  orchestrator.probeAll().then(() => orchestrator.refreshQuota()).catch(() => {});
+}, 1_500).unref();
+setInterval(() => { orchestrator.refreshQuota().catch(() => {}); }, 15 * 60_000).unref();
+
 const server = http.createServer(async (request, response) => {
   const requestUrl = new URL(request.url ?? '/', `http://${HOST}:${PORT}`);
+  if (await control.handle(request, response, requestUrl)) return;
   if (request.method !== 'GET') {
     response.writeHead(405, { Allow: 'GET' }).end('Method not allowed');
     return;
@@ -283,8 +325,23 @@ const server = http.createServer(async (request, response) => {
     });
     return;
   }
+  if (requestUrl.pathname === '/village') {
+    response.writeHead(301, { Location: '/village/' }).end();
+    return;
+  }
   await serveStatic(requestUrl.pathname, response);
 });
+
+// LAN port: only the village page, its assets and the phone-safe API (src/control-http.js handleLan).
+const lanServer = LAN_ON ? http.createServer(async (request, response) => {
+  const requestUrl = new URL(request.url ?? '/', 'http://lan.invalid');
+  if (await control.handle(request, response, requestUrl, { lan: true })) return;
+  if (request.method !== 'GET') { response.writeHead(405, { Allow: 'GET' }).end('Method not allowed'); return; }
+  if (requestUrl.pathname === '/' || requestUrl.pathname === '/village') { response.writeHead(302, { Location: '/village/' }).end(); return; }
+  if (!requestUrl.pathname.startsWith('/village/')) { response.writeHead(404).end('Not found'); return; }
+  await serveStatic(requestUrl.pathname, response);
+}) : null;
+lanServer?.on('error', (error) => console.error(`[village] porta da rede local: ${error.message}`));
 
 server.on('error', (error) => {
   console.error(`[ops-room] server error: ${error.message}`);
@@ -292,7 +349,11 @@ server.on('error', (error) => {
 });
 
 async function shutdown() {
+  try { rmSync(HOOK_FILE, { force: true }); } catch { /* best effort */ }
+  lanServer?.close();
   watcher.stop();
+  control.close();
+  for (const id of orchestrator.running.keys()) { try { orchestrator.cancel(id); } catch { /* already stopped */ } }
   for (const client of clients) client.end();
   server.close(() => process.exit(0));
 }
@@ -306,4 +367,16 @@ server.listen(PORT, HOST, () => {
   process.parentPort?.postMessage({ type: 'ready', port: actualPort });
   console.log(`[ops-room] http://${HOST}:${actualPort}`);
   console.log(`[ops-room] watching read-only: ${SESSIONS_ROOT}`);
+  console.log(`[village] execução real: ${orchestrator.control ? 'LIGADA (VILLAGE_CONTROL=1, cada missão exige aprovação)' : 'desligada (modo só rascunho)'}`);
+  // Where the hooks find this server: port + secret, readable only by this user.
+  try {
+    mkdirSync(orchestrator.dataDir, { recursive: true });
+    writeFileSync(HOOK_FILE, JSON.stringify({ port: IN_DOCKER ? PORT : actualPort, token: hookToken, pid: process.pid, startedAt: new Date().toISOString() }), { mode: 0o600 });
+    chmodSync(HOOK_FILE, 0o600);
+  } catch (error) { console.error(`[village] não foi possível gravar ${HOOK_FILE}: ${error.message}`); }
+  if (lanServer) {
+    lanServer.listen(LAN_PORT, '0.0.0.0', () => {
+      console.log(`[village] celular na rede local: porta ${lanServer.address().port} (pareie pelo botão 📱 na vila; use só em rede confiável)`);
+    });
+  }
 });

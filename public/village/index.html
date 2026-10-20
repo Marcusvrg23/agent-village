@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>Agent Village — Release Orchestrator V2</title>
+    <link rel="icon" href="favicon.png">
+    <link rel="stylesheet" href="village.css">
+  </head>
+  <body>
+    <main class="shell">
+      <canvas id="world" aria-label="Agent Village: vila com agentes independentes" tabindex="0"></canvas>
+
+      <header class="hud top-left">
+        <h1>Agent Village</h1>
+        <div class="badges">
+          <span class="badge mode" id="mode">IDLE · vida local</span>
+          <span class="badge runtime" id="runtime" title="Fontes reais: rollouts do Codex, transcrições do Claude Code e missões aprovadas na vila.">Runtime: verificando…</span>
+        </div>
+      </header>
+
+      <nav class="hud top-right" aria-label="Controles da câmera">
+        <button type="button" id="zoom-out" aria-label="Diminuir zoom">−</button>
+        <button type="button" id="zoom-in" aria-label="Aumentar zoom">+</button>
+        <button type="button" id="zoom-fit" aria-label="Enquadrar a vila">⤢</button>
+        <button type="button" id="time" title="Ciclo do dia">⟳</button>
+        <button type="button" id="weather" title="Clima">⛅</button>
+        <button type="button" id="motion" aria-pressed="false" title="Movimento reduzido">⏸</button>
+        <button type="button" class="wide attention-btn" id="open-attention" title="Pedidos esperando você">✋</button>
+        <button type="button" id="notify" aria-pressed="false" title="Avisos">🔔</button>
+        <button type="button" class="wide" id="open-fountain" title="Fonte de Elixir: cota real dos planos">⛲ Elixir</button>
+        <button type="button" class="wide" id="open-missions" title="Escrever um prompt e executar na vila">✎ Missão</button>
+        <button type="button" id="open-skins" title="Aparência dos avatares">🎨</button>
+        <button type="button" id="open-phone" class="desktop-only" title="Abrir no celular (rede local)">📱</button>
+        <a class="link desktop-only" href="/" title="Abrir o Ops Room original">Ops Room</a>
+      </nav>
+
+      <aside class="panel" id="panel" hidden aria-live="polite">
+        <button type="button" class="close" id="panel-close" aria-label="Fechar">×</button>
+        <p class="kicker" id="panel-kicker"></p>
+        <h2 id="panel-title"></h2>
+        <dl id="panel-body"></dl>
+        <p class="note" id="panel-note"></p>
+      </aside>
+
+      <section class="panel fountain" id="fountain" hidden aria-live="polite" aria-labelledby="fountain-title">
+        <button type="button" class="close" id="fountain-close" aria-label="Fechar">×</button>
+        <p class="kicker">Fonte de Elixir</p>
+        <h2 id="fountain-title">Cota real dos seus planos</h2>
+        <div id="fountain-body"></div>
+        <div class="actions"><button type="button" id="fountain-refresh">Atualizar leitura</button></div>
+        <p class="note" id="fountain-note">Clicar só relê as fontes locais. A fonte nunca repõe créditos: ela enche quando o próprio provedor informa a renovação.</p>
+      </section>
+
+      <section class="attention-stack" id="attention" hidden aria-live="assertive" aria-label="Pedidos esperando você"></section>
+
+      <section class="panel" id="phone" hidden aria-labelledby="phone-title">
+        <button type="button" class="close" id="phone-close" aria-label="Fechar">×</button>
+        <p class="kicker">Celular</p>
+        <h2 id="phone-title">Acompanhar e aprovar pelo celular</h2>
+        <div id="phone-body"></div>
+      </section>
+
+      <section class="panel skins" id="skins" hidden aria-labelledby="skins-title">
+        <button type="button" class="close" id="skins-close" aria-label="Fechar">×</button>
+        <p class="kicker">Aparência</p>
+        <h2 id="skins-title">Visual dos avatares</h2>
+        <div id="skins-body"></div>
+      </section>
+
+      <div class="pairing" id="pairing" hidden>
+        <form id="pair-form" class="panel-box">
+          <p class="kicker">Agent Village</p>
+          <h2>Parear este celular</h2>
+          <p class="small">No computador, clique em 📱 na vila e digite aqui o código mostrado.</p>
+          <input id="pair-code" inputmode="text" autocomplete="one-time-code" maxlength="9" placeholder="ABCD EFGH" required>
+          <button type="submit" class="primary">Parear</button>
+          <p class="error" id="pair-error"></p>
+        </form>
+      </div>
+
+      <section class="drawer" id="missions" hidden aria-labelledby="missions-title">
+        <button type="button" class="close" id="missions-close" aria-label="Fechar">×</button>
+        <p class="kicker">Missões</p>
+        <h2 id="missions-title">Executar um prompt na vila</h2>
+        <p class="small" id="control-mode"></p>
+        <form id="composer">
+          <label>Prompt<textarea id="m-prompt" rows="5" required maxlength="20000" placeholder="Ex.: Revise os testes do módulo de cotas e aponte casos faltando."></textarea></label>
+          <label>Pasta do projeto<input id="m-cwd" required placeholder="C:\Users\Dell\mnt\codex agents" autocomplete="off"></label>
+          <div class="grid2">
+            <label>Runtime<select id="m-runtime"><option value="auto">Automático</option><option value="claude-code">Claude Code</option><option value="codex">Codex</option></select></label>
+            <fieldset><legend>Permissão</legend>
+              <label class="check"><input type="radio" name="m-mode" value="read" checked> Somente leitura</label>
+              <label class="check"><input type="radio" name="m-mode" value="edit"> Pode editar</label>
+            </fieldset>
+          </div>
+          <details><summary>Engenharia reversa (opcional)</summary>
+            <label>Alvo binário<input id="m-target" placeholder="caminho do executável/pacote" autocomplete="off"></label>
+            <label class="check"><input type="checkbox" id="m-authorized"> Sou dono do alvo ou tenho permissão para analisá-lo</label>
+          </details>
+          <button type="submit" class="primary">Analisar (grátis)</button>
+        </form>
+        <div id="preflight"></div>
+        <h3>Runtimes</h3>
+        <ul class="list" id="adapters"></ul>
+        <h3>Missões recentes</h3>
+        <ul class="list" id="mission-list"></ul>
+      </section>
+
+      <footer class="hud bottom-left">
+        <span><i class="dot standby"></i>STANDBY = avatar local, nenhum agente real atribuído</span>
+        <span>Vida ociosa determinística · 0 chamadas de IA · 0 tokens</span>
+        <span><i class="dot active"></i>ACTIVE = agente real (Codex, Claude Code ou missão aprovada)</span>
+        <span>Clima e hora do dia: simulação local decorativa</span>
+        <span id="perf" hidden></span>
+      </footer>
+
+      <div class="loading" id="loading">Carregando a vila…</div>
+    </main>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

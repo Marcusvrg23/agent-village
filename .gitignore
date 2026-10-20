@@ -10,3 +10,4 @@ coverage/
 *.pid
 release/
 ops-room-v1.png
+__pycache__/

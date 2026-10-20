@@ -1,0 +1,10 @@
+.git
+.github
+node_modules
+release
+.tmp
+art
+test
+test-fixtures
+*.md
+!README.md

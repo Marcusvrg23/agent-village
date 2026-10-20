@@ -1,0 +1,38 @@
+{
+ "cell": [
+  40,
+  50
+ ],
+ "anchor": [
+  20,
+  48
+ ],
+ "frames": [
+  "walk_dl_0",
+  "walk_dl_1",
+  "walk_dl_2",
+  "walk_dl_3",
+  "walk_ur_0",
+  "walk_ur_1",
+  "walk_ur_2",
+  "walk_ur_3",
+  "idle_0",
+  "blink",
+  "look_back",
+  "idle_1",
+  "type",
+  "read",
+  "talk",
+  "celebrate"
+ ],
+ "roles": {
+  "LEAD": "assets/sprites/lead.png",
+  "EXPLORER": "assets/sprites/explorer.png",
+  "RE_ANALYST": "assets/sprites/re_analyst.png",
+  "SPEC_ARCHITECT": "assets/sprites/spec_architect.png",
+  "WORKER": "assets/sprites/worker.png",
+  "REVIEWER": "assets/sprites/reviewer.png",
+  "QA": "assets/sprites/qa.png",
+  "RELEASE_GATE": "assets/sprites/release_gate.png"
+ }
+}

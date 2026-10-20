@@ -1,0 +1,420 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Agent Village</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Uma vila em pixel art onde seus agentes do Claude Code e do Codex trabalham, levantam a mão quando precisam de você e executam missões sem gasto de API. Local, gratuita, para Windows, macOS e Linux.">
+<link rel="icon" href="assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a walk down the village path at dusk — hero window, the buildings (features), the gate (install), the vault (privacy). */
+:root {
+  --bg: #10163a;          /* night over the village */
+  --bg-2: #18204c;        /* raised ground */
+  --bg-3: #222b5e;
+  --ink: #f4efe0;         /* parchment */
+  --muted: #b2b8d8;
+  --lamp: #ffc857;        /* lantern light */
+  --lamp-ink: #2a1c05;
+  --crystal: #73d6ff;     /* the fountain crystal */
+  --active: #5ee6a8;      /* ACTIVE ring in the app */
+  --wood: #4a2f1a;        /* building signs */
+  --wood-edge: #8a5a32;
+  --line: rgba(178, 184, 216, 0.22);
+  --shadow: 0 18px 50px rgba(3, 6, 22, 0.55);
+  --display: "Pixelify Sans", "Courier New", monospace;
+  --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #edf2fb; --bg-2: #ffffff; --bg-3: #dfe7f6; --ink: #1a2043; --muted: #4d5679;
+    --lamp: #b56d12; --lamp-ink: #fff8ea; --crystal: #1b77ad; --active: #17875a;
+    --wood: #5a3a20; --wood-edge: #9a6a3c; --line: rgba(26, 32, 67, 0.16); --shadow: 0 16px 40px rgba(26, 32, 67, 0.16);
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #edf2fb; --bg-2: #ffffff; --bg-3: #dfe7f6; --ink: #1a2043; --muted: #4d5679;
+  --lamp: #b56d12; --lamp-ink: #fff8ea; --crystal: #1b77ad; --active: #17875a;
+  --wood: #5a3a20; --wood-edge: #9a6a3c; --line: rgba(26, 32, 67, 0.16); --shadow: 0 16px 40px rgba(26, 32, 67, 0.16);
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { animation: none !important; transition: none !important; } }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 17px/1.6 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+a { color: var(--crystal); }
+a:focus-visible, button:focus-visible { outline: 3px solid var(--lamp); outline-offset: 3px; }
+img, video { max-width: 100%; display: block; }
+.wrap { max-width: 1120px; margin: 0 auto; }
+
+/* top bar */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 18px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; font: 700 22px/1 var(--display); color: var(--ink); text-decoration: none; letter-spacing: 0.02em; }
+.brand img { width: 28px; height: 28px; image-rendering: pixelated; }
+.top nav { display: flex; gap: 18px; flex-wrap: wrap; font-size: 15px; }
+.top nav a { color: var(--muted); text-decoration: none; }
+.top nav a:hover { color: var(--ink); }
+
+/* building-sign labels (the same wooden plaques as on the map) */
+.sign {
+  display: inline-block; font: 700 13px/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase;
+  color: #ffe9b8; background: var(--wood); border: 2px solid var(--wood-edge); border-radius: 4px; padding: 6px 10px 5px;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+}
+
+/* hero */
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 40px; align-items: center; padding-block: 36px 56px; }
+.hero h1 { font: 700 clamp(36px, 5.4vw, 60px)/1.05 var(--display); margin: 16px 0 18px; text-wrap: balance; letter-spacing: 0.01em; }
+.hero h1 em { font-style: normal; color: var(--lamp); }
+.lead { font-size: 19px; color: var(--muted); max-width: 34em; margin: 0 0 26px; }
+.ctas { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; font: 700 16px/1 var(--body); text-decoration: none; cursor: pointer;
+  padding: 14px 20px; border-radius: 10px; border: 2px solid transparent;
+}
+.btn.primary { background: var(--lamp); color: var(--lamp-ink); box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3); }
+.btn.primary:hover { transform: translateY(-1px); }
+.btn.ghost { border-color: var(--line); color: var(--ink); background: transparent; }
+.facts { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 24px; font-size: 14px; color: var(--muted); }
+.facts b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.window { position: relative; border-radius: 14px; overflow: hidden; border: 3px solid var(--wood-edge); box-shadow: var(--shadow); background: #0b1230; }
+.window img { width: 100%; height: auto; aspect-ratio: 1280 / 760; image-rendering: pixelated; }
+.window figcaption { position: absolute; left: 10px; bottom: 10px; font-size: 12px; color: #e8ecff; background: rgba(10, 14, 36, 0.78); padding: 4px 8px; border-radius: 6px; }
+
+/* sections */
+section { padding-block: 56px; border-top: 1px solid var(--line); }
+section > .wrap > header { max-width: 46em; margin-bottom: 32px; }
+h2 { font: 700 clamp(28px, 3.6vw, 40px)/1.12 var(--display); margin: 14px 0 12px; text-wrap: balance; }
+h3 { font: 700 19px/1.3 var(--body); margin: 0 0 6px; }
+p { margin: 0 0 12px; }
+.muted { color: var(--muted); }
+
+/* the hand-raise demo */
+.demo { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 32px; align-items: start; }
+.card {
+  background: #2a1b07; color: #fff3d6; border: 3px solid #ffd84d; border-radius: 14px; padding: 16px 18px; box-shadow: var(--shadow);
+}
+.card .kicker { font: 700 12px/1.2 var(--body); letter-spacing: 0.08em; text-transform: uppercase; color: #ffd84d; margin: 0 0 6px; }
+.card h3 { color: #fff3d6; font-size: 20px; }
+.card code.cmd { display: block; font: 14px/1.4 var(--mono); background: rgba(0, 0, 0, 0.45); border-radius: 8px; padding: 10px 12px; margin: 10px 0 12px; color: #fff; overflow-x: auto; white-space: pre; }
+.card .row { display: flex; gap: 10px; flex-wrap: wrap; }
+.card button { font: 700 15px/1 var(--body); padding: 10px 14px; border-radius: 8px; cursor: pointer; border: 2px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.08); color: #fff3d6; }
+.card button.ok { background: #ffd84d; color: #2a1b07; border-color: #ffd84d; }
+.card button.no { border-color: #ff9a85; color: #ffd6cc; }
+.card .small { font-size: 13px; color: #e8d6ad; margin: 10px 0 0; }
+.out { margin-top: 14px; }
+.out pre { margin: 6px 0 0; font: 13px/1.5 var(--mono); background: var(--bg-2); border: 1px solid var(--line); color: var(--ink); border-radius: 10px; padding: 12px; overflow-x: auto; white-space: pre; }
+.steps { display: grid; gap: 14px; margin: 0; padding: 0; list-style: none; counter-reset: s; }
+.steps li { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 12px; counter-increment: s; }
+.steps li::before { content: counter(s); font: 700 16px/34px var(--display); text-align: center; width: 34px; height: 34px; border-radius: 8px; background: var(--bg-3); color: var(--lamp); }
+
+/* features: buildings of the village */
+.grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.feat { background: var(--bg-2); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: grid; gap: 8px; align-content: start; }
+.feat .where { font: 600 12px/1 var(--mono); color: var(--crystal); letter-spacing: 0.04em; text-transform: uppercase; }
+.feat p { color: var(--muted); font-size: 15.5px; margin: 0; }
+.shots { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 0.8fr); gap: 18px; margin-top: 26px; align-items: start; }
+.shots figure { margin: 0; }
+.shots img, .shots video { border-radius: 12px; border: 1px solid var(--line); width: 100%; height: auto; }
+.shots figcaption { font-size: 13px; color: var(--muted); margin-top: 6px; }
+.shots .phone img { max-width: 240px; margin: 0 auto; border-radius: 22px; border: 3px solid var(--bg-3); }
+
+/* zero API spend */
+.budget { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 32px; align-items: center; }
+.meter { background: var(--bg-2); border: 1px solid var(--line); border-radius: 14px; padding: 22px; }
+.meter .num { font: 700 64px/1 var(--display); color: var(--active); font-variant-numeric: tabular-nums; }
+.meter .lbl { color: var(--muted); font-size: 14px; margin-top: 6px; }
+.checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.checks li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; }
+.checks li::before { content: ""; width: 14px; height: 14px; margin-top: 6px; border-radius: 3px; background: var(--active); box-shadow: inset 0 0 0 3px var(--bg-2); outline: 2px solid var(--active); }
+
+/* install */
+.tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.tab { font: 700 15px/1 var(--body); padding: 10px 14px; border-radius: 8px; border: 2px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; }
+.tab[aria-selected="true"] { background: var(--lamp); color: var(--lamp-ink); border-color: var(--lamp); }
+.panel { background: var(--bg-2); border: 1px solid var(--line); border-radius: 14px; padding: 20px; display: grid; gap: 14px; }
+.code { position: relative; min-width: 0; }
+.code pre { margin: 0; font: 14px/1.6 var(--mono); background: #0b1028; color: #e8ecff; border-radius: 10px; padding: 14px 16px; padding-right: 86px; overflow-x: auto; white-space: pre; }
+.code .copy { position: absolute; top: 8px; right: 8px; font: 600 12px/1 var(--body); padding: 7px 10px; border-radius: 6px; border: 1px solid rgba(232, 236, 255, 0.3); background: rgba(232, 236, 255, 0.08); color: #e8ecff; cursor: pointer; }
+.note { font-size: 14px; color: var(--muted); margin: 0; }
+.panel.after { margin-top: 18px; }
+.req { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 18px; }
+.req div { border: 1px dashed var(--line); border-radius: 10px; padding: 12px 14px; font-size: 15px; }
+.req b { display: block; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+
+/* privacy + faq */
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; }
+details { border-bottom: 1px solid var(--line); padding-block: 12px; }
+summary { cursor: pointer; font-weight: 700; }
+details p { color: var(--muted); margin: 8px 0 0; }
+footer { padding-block: 40px 56px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; display: flex; gap: 16px; flex-wrap: wrap; justify-content: space-between; }
+
+@media (max-width: 880px) {
+  .hero, .demo, .budget, .shots, .two { grid-template-columns: minmax(0, 1fr); }
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .req { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 560px) {
+  body { font-size: 16px; }
+  .grid { grid-template-columns: minmax(0, 1fr); }
+  .top nav { gap: 12px; font-size: 14px; }
+  .meter .num { font-size: 48px; }
+}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="#inicio"><img src="assets/favicon.png" alt="" width="28" height="28">Agent Village</a>
+    <nav aria-label="Seções">
+      <a href="#mao">Precisa de você</a>
+      <a href="#vila">A vila</a>
+      <a href="#custo">US$ 0 de API</a>
+      <a href="#instalar">Instalar</a>
+      <a href="#perguntas">Perguntas</a>
+    </nav>
+  </header>
+
+  <div class="hero" id="inicio">
+    <div>
+      <span class="sign">Claude Code · Codex</span>
+      <h1>Seus agentes de código, vivendo numa <em>vila</em>.</h1>
+      <p class="lead">Cada agente do Claude Code e do Codex vira um morador. Você vê quem está explorando, editando ou testando, e quando um deles precisa de permissão, ele corre até o portão e levanta a mão. Você aprova ali mesmo, até pelo celular.</p>
+      <div class="ctas">
+        <a class="btn primary" href="#instalar">Instalar grátis</a>
+        <a class="btn ghost" href="https://github.com/Marcusvrg23/agent-village">Código no GitHub</a>
+      </div>
+      <div class="facts">
+        <span><b>Windows</b>, <b>macOS</b> e <b>Linux</b></span>
+        <span><b>0</b> chamadas de IA na vida da vila</span>
+        <span><b>US$ 0,00</b> de API por padrão</span>
+      </div>
+    </div>
+    <figure class="window">
+      <img src="assets/vila-mao.webp" alt="A vila em pixel art com prédios como Lead HQ, Forge, Test Lab e Gatehouse. Um avatar levanta a mão e um cartão pergunta se pode executar npm install." width="1280" height="760">
+      <figcaption>Demonstração com sessões de exemplo</figcaption>
+    </figure>
+  </div>
+</div>
+
+<section id="mao">
+  <div class="wrap">
+    <header>
+      <span class="sign">Gatehouse</span>
+      <h2>Quando o agente precisa de você, ele levanta a mão</h2>
+      <p class="muted">Pedidos de permissão do Claude Code e do Codex chegam à vila. O avatar daquela sessão vai até o Gatehouse e espera. Vale o que você responder primeiro: no cartão, no celular ou no terminal.</p>
+    </header>
+    <div class="demo">
+      <div>
+        <article class="card" aria-label="Exemplo de pedido de permissão">
+          <p class="kicker">✋ Claude Code precisa de você · app-mobile</p>
+          <h3>Quer executar um comando</h3>
+          <p class="small">Instalar dependência</p>
+          <code class="cmd">npm install left-pad --save</code>
+          <div class="row">
+            <button type="button" class="ok" id="demo-allow">Aprovar</button>
+            <button type="button" class="no" id="demo-deny">Recusar</button>
+            <button type="button" id="demo-term">Responder no terminal</button>
+          </div>
+          <p class="small">Toque num botão para ver o que a vila devolve ao Claude Code.</p>
+        </article>
+        <div class="out" aria-live="polite">
+          <p class="note" id="demo-label">Resposta do hook:</p>
+          <pre id="demo-out">(esperando sua decisão)</pre>
+        </div>
+      </div>
+      <ol class="steps">
+        <li><div><h3>Um comando, uma vez</h3><p class="muted"><code>npm run village:setup -- hooks install --yes</code> instala o hook de permissão em cada conta do Claude Code e do Codex, com backup antes.</p></div></li>
+        <li><div><h3>O agente pede, a vila mostra</h3><p class="muted">O cartão diz o que ele quer: o comando, o arquivo ou a página. Ligue o 🔔 para ouvir um aviso.</p></div></li>
+        <li><div><h3>Você decide</h3><p class="muted">Aprovar, recusar com um motivo ou deixar para o terminal. Nada é aprovado sozinho.</p></div></li>
+        <li><div><h3>Com a vila fechada, nada muda</h3><p class="muted">Sem página aberta, o pedido segue direto para o terminal, como sempre.</p></div></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section id="vila">
+  <div class="wrap">
+    <header>
+      <span class="sign">Praça central</span>
+      <h2>Uma vila que mostra trabalho de verdade</h2>
+      <p class="muted">Um avatar só fica ACTIVE (anel verde) quando um agente real ocupa aquele papel. O resto do tempo os moradores passeiam, conversam e jogam, tudo calculado no seu computador, sem IA.</p>
+    </header>
+    <div class="grid">
+      <article class="feat"><span class="where">Fonte de Elixir</span><h3>Cota real dos seus planos</h3><p>Janela de 5 horas e semanal do Claude Pro/Max e do ChatGPT Plus, com a próxima renovação. Clicar só relê os dados: nunca inventa crédito.</p></article>
+      <article class="feat"><span class="where">✎ Missão</span><h3>Prompts direto da vila</h3><p>Escreva o pedido, veja qual agente será usado e por quê, aprove, e acompanhe os avatares trabalhando. No fim, um Release Gate diz se ficou pronto.</p></article>
+      <article class="feat"><span class="where">Várias contas</span><h3>Todas as suas contas</h3><p>Cada pasta <code>~/.claude*</code> e <code>~/.codex*</code> vira uma conta. A missão vai para a conta com mais cota livre.</p></article>
+      <article class="feat"><span class="where">📱 Celular</span><h3>Aprove de longe</h3><p>Na mesma rede Wi-Fi, digite um código de 8 caracteres e acompanhe a vila pelo celular, aprovando ou recusando pedidos.</p></article>
+      <article class="feat"><span class="where">Acampamento</span><h3>Uma barraca por projeto</h3><p>Cada projeto com sessão aberta ganha uma barraca. A luz acende enquanto há agentes trabalhando e ela é desmontada quando você fecha tudo.</p></article>
+      <article class="feat"><span class="where">⏳ Test Lab</span><h3>Esperando o teste rodar</h3><p>Enquanto um teste ou build roda, o avatar come pipoca, cruza os braços, junta teias e cochila. Confete se passou, nuvem de chuva se falhou.</p></article>
+      <article class="feat"><span class="where">Vida social</span><h3>Os moradores têm vida própria</h3><p>Pedra-papel-tesoura valendo moedas, futebol na praça, pescaria na ponte. Um trabalho real interrompe qualquer jogo na hora.</p></article>
+      <article class="feat"><span class="where">🎨 Visuais</span><h3>Troque o visual</h3><p>Cores de cabelo e roupa, tom de pele, o visual de outro papel ou uma arte sua, seguindo a política de arte do projeto.</p></article>
+      <article class="feat"><span class="where">Dia e noite</span><h3>Cenário vivo</h3><p>Ciclo de dia e noite pela sua hora local, lampiões que acendem, água, cachoeira, chuva e neblina. Roda a 30 fps até em notebook de 2013.</p></article>
+    </div>
+    <div class="shots">
+      <figure>
+        <video src="assets/demo.mp4" poster="assets/poster.jpg" controls muted playsinline preload="none" width="960" height="570"></video>
+        <figcaption>Vídeo de demonstração: pedido aprovado, missão rodando e troca de visual (sessões de exemplo).</figcaption>
+      </figure>
+      <figure class="phone">
+        <img src="assets/celular.webp" alt="A vila no celular com dois cartões: um aviso de sessão esperando no terminal e um pedido do Codex para executar rm -rf build." width="390" height="780" loading="lazy">
+        <figcaption>Pelo celular, só acompanhar e responder pedidos.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section id="custo">
+  <div class="wrap budget">
+    <div class="meter">
+      <span class="sign">Firewall financeiro</span>
+      <p class="num">US$ 0,00</p>
+      <p class="lbl">Gasto de API autorizado por padrão. A vila usa só o login do seu plano.</p>
+    </div>
+    <div>
+      <h2>Feita para quem paga plano, não API</h2>
+      <ul class="checks">
+        <li><span>Antes de rodar qualquer missão, confere que o Claude Code está logado pela assinatura e que o Codex está logado pelo ChatGPT.</span></li>
+        <li><span>Login por chave de API ou desconhecido: a missão é bloqueada.</span></li>
+        <li><span>Variáveis como <code>ANTHROPIC_API_KEY</code> e <code>OPENAI_API_KEY</code> são removidas dos processos dos agentes.</span></li>
+        <li><span>Cota esgotada: a missão espera a renovação ou vai para outra conta sua, nunca para uma API paga.</span></li>
+        <li><span>A vida da vila (passeios, conversas, jogos) não chama IA nenhuma: 0 tokens.</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="instalar">
+  <div class="wrap">
+    <header>
+      <span class="sign">Portão de entrada</span>
+      <h2>Instalar</h2>
+      <p class="muted">Gratuito e local: tudo roda no seu computador. Precisa do <a href="https://nodejs.org/">Node.js 20 ou mais novo</a> e do Claude Code e/ou do Codex já logados.</p>
+    </header>
+    <div class="tabs" role="tablist" aria-label="Sistema">
+      <button class="tab" role="tab" id="t-win" aria-selected="true" aria-controls="p-win">Windows</button>
+      <button class="tab" role="tab" id="t-mac" aria-selected="false" aria-controls="p-mac">macOS</button>
+      <button class="tab" role="tab" id="t-lin" aria-selected="false" aria-controls="p-lin">Linux</button>
+      <button class="tab" role="tab" id="t-dock" aria-selected="false" aria-controls="p-dock">Docker</button>
+    </div>
+
+    <div class="panel" role="tabpanel" id="p-win" aria-labelledby="t-win">
+      <p class="note">No Prompt de Comando ou no PowerShell:</p>
+      <div class="code"><pre>git clone https://github.com/Marcusvrg23/agent-village.git
+cd agent-village
+npm run village</pre><button class="copy" type="button">Copiar</button></div>
+      <p class="note">A vila abre em <code>http://127.0.0.1:4173/village/</code>. Para executar missões de verdade: <code>set VILLAGE_CONTROL=1 &amp;&amp; npm run village</code>.</p>
+    </div>
+    <div class="panel" role="tabpanel" id="p-mac" aria-labelledby="t-mac" hidden>
+      <p class="note">No Terminal:</p>
+      <div class="code"><pre>git clone https://github.com/Marcusvrg23/agent-village.git
+cd agent-village
+npm run village</pre><button class="copy" type="button">Copiar</button></div>
+      <p class="note">Para executar missões de verdade: <code>VILLAGE_CONTROL=1 npm run village</code>.</p>
+    </div>
+    <div class="panel" role="tabpanel" id="p-lin" aria-labelledby="t-lin" hidden>
+      <div class="code"><pre>git clone https://github.com/Marcusvrg23/agent-village.git
+cd agent-village
+npm run village</pre><button class="copy" type="button">Copiar</button></div>
+      <p class="note">Para executar missões de verdade: <code>VILLAGE_CONTROL=1 npm run village</code>.</p>
+    </div>
+    <div class="panel" role="tabpanel" id="p-dock" aria-labelledby="t-dock" hidden>
+      <div class="code"><pre>git clone https://github.com/Marcusvrg23/agent-village.git
+cd agent-village
+docker compose up -d</pre><button class="copy" type="button">Copiar</button></div>
+      <p class="note">No Docker a vila só observa (missões ficam desligadas, porque os agentes e os logins ficam no seu computador). Entram no container, somente leitura, só as pastas de sessões. No Windows, antes: <code>set VILLAGE_HOST_HOME=%USERPROFILE%</code>.</p>
+    </div>
+
+    <div class="panel after">
+      <h3>Depois de instalar (opcional, uma vez)</h3>
+      <div class="code"><pre>npm run village:setup -- hooks install --yes
+npm run village:setup -- statusline install --yes</pre><button class="copy" type="button">Copiar</button></div>
+      <p class="note">O primeiro liga a mão levantada (pedidos de permissão na vila). O segundo deixa a vila ler a cota do Claude. Os dois mostram uma prévia sem <code>--yes</code> e fazem backup antes de mudar qualquer configuração. No Codex, aprove o hook uma vez em <code>/hooks</code>.</p>
+    </div>
+
+    <div class="req">
+      <div><b>Requisitos</b>Node.js 20+ · Claude Code e/ou Codex logados pelo plano</div>
+      <div><b>Celular</b>Abra com <code>VILLAGE_LAN=1</code> e clique em 📱 na vila</div>
+      <div><b>Aplicativo desktop</b><code>npm run package:desktop</code> no seu sistema</div>
+    </div>
+  </div>
+</section>
+
+<section id="privacidade">
+  <div class="wrap two">
+    <div>
+      <span class="sign">Context Vault</span>
+      <h2>Seus dados ficam no seu computador</h2>
+      <p class="muted">A vila lê as sessões que o Claude Code e o Codex já gravam, sem alterá-las, e mostra só o nome da ferramenta e do arquivo, nunca o texto dos seus prompts.</p>
+    </div>
+    <ul class="checks">
+      <li><span>Nunca abre credenciais: nada de <code>auth.json</code>, chaveiro ou tokens.</span></li>
+      <li><span>O servidor escuta só em <code>127.0.0.1</code>; o celular usa uma porta separada, opcional, com código de pareamento.</span></li>
+      <li><span>Os hooks falam só com o seu computador, com um segredo novo a cada vez que a vila abre.</span></li>
+      <li><span>Missões, histórico e auditoria ficam em <code>~/.agent-village</code>, com segredos mascarados.</span></li>
+    </ul>
+  </div>
+</section>
+
+<section id="perguntas">
+  <div class="wrap">
+    <header><span class="sign">Perguntas</span><h2>Perguntas frequentes</h2></header>
+    <details><summary>Precisa pagar alguma coisa?</summary><p>Não. A vila é gratuita e usa o plano que você já tem (Claude Pro/Max, ChatGPT Plus). Por padrão ela não gasta nada de API.</p></details>
+    <details><summary>Funciona só com o Claude Code, ou só com o Codex?</summary><p>Funciona com qualquer um dos dois, ou com os dois juntos. Sem nenhum deles instalado, a vila abre e mostra a vida dos moradores, mas sem agentes reais.</p></details>
+    <details><summary>A vila aprova coisas sozinha?</summary><p>Não. Cada aprovação vem de um clique seu. Se a vila estiver fechada, o pedido segue para o terminal como sempre.</p></details>
+    <details><summary>Roda em computador fraco?</summary><p>Sim. Foi feita num notebook de 2013 com vídeo integrado e roda a 30 quadros por segundo. Se ficar lento, os efeitos diminuem sozinhos.</p></details>
+    <details><summary>Posso usar minha própria arte?</summary><p>Pode, pelo botão 🎨, desde que seja sua ou licenciada e não use personagens, marcas ou pessoas reais de terceiros. O formato está na política de arte do projeto.</p></details>
+  </div>
+</section>
+
+<div class="wrap">
+  <footer>
+    <span>Agent Village · feito em Brasília por ViniusTech</span>
+    <span><a href="https://github.com/Marcusvrg23/agent-village">GitHub</a> · Claude Code é da Anthropic e Codex é da OpenAI; a Agent Village é um projeto independente.</span>
+  </footer>
+</div>
+
+<script>
+(() => {
+  // install tabs
+  const tabs = [...document.querySelectorAll('.tab')];
+  const select = (t) => {
+    for (const x of tabs) {
+      const on = x === t;
+      x.setAttribute('aria-selected', String(on));
+      document.getElementById(x.getAttribute('aria-controls')).hidden = !on;
+    }
+  };
+  tabs.forEach((t) => t.addEventListener('click', () => select(t)));
+  const ua = navigator.userAgent;
+  if (/Mac OS X/.test(ua) && !/iPhone|iPad/.test(ua)) select(document.getElementById('t-mac'));
+  else if (/Linux/.test(ua) && !/Android/.test(ua)) select(document.getElementById('t-lin'));
+
+  // copy buttons
+  for (const b of document.querySelectorAll('.copy')) {
+    b.addEventListener('click', () => {
+      const pre = b.parentElement.querySelector('pre');
+      const done = (msg) => { b.textContent = msg; setTimeout(() => { b.textContent = 'Copiar'; }, 1600); };
+      navigator.clipboard?.writeText(pre.textContent).then(() => done('Copiado'), () => {
+        const r = document.createRange(); r.selectNodeContents(pre);
+        const s = getSelection(); s.removeAllRanges(); s.addRange(r); done('Selecionado');
+      }) ?? done('Selecione o texto');
+    });
+  }
+
+  // hand-raise demo: the exact JSON the village hook prints for Claude Code
+  const out = document.getElementById('demo-out');
+  const label = document.getElementById('demo-label');
+  const show = (title, obj) => { label.textContent = title; out.textContent = obj ? JSON.stringify(obj, null, 2) : '(nada: o hook sai sem decidir e o Claude Code pergunta no terminal)'; };
+  document.getElementById('demo-allow').addEventListener('click', () => show('Aprovado. O hook imprime:', { hookSpecificOutput: { hookEventName: 'PermissionRequest', decision: { behavior: 'allow' } } }));
+  document.getElementById('demo-deny').addEventListener('click', () => show('Recusado com motivo. O hook imprime:', { hookSpecificOutput: { hookEventName: 'PermissionRequest', decision: { behavior: 'deny', message: 'Recusado pelo operador na Agent Village: use o pacote já instalado.' } } }));
+  document.getElementById('demo-term').addEventListener('click', () => show('Deixado para o terminal:', null));
+})();
+</script>

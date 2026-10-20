@@ -1,0 +1,902 @@
+{
+ "size": [
+  1344,
+  752
+ ],
+ "nodes": {
+  "P_N": [
+   645,
+   288
+  ],
+  "P_NW": [
+   560,
+   300
+  ],
+  "P_W": [
+   515,
+   348
+  ],
+  "P_SW": [
+   565,
+   408
+  ],
+  "P_S": [
+   648,
+   418
+  ],
+  "P_SE": [
+   735,
+   408
+  ],
+  "P_E": [
+   780,
+   348
+  ],
+  "P_NE": [
+   735,
+   298
+  ],
+  "HQ_MID": [
+   645,
+   255
+  ],
+  "HQ_SPOT": [
+   645,
+   226
+  ],
+  "OBS_2": [
+   478,
+   290
+  ],
+  "OBS_1": [
+   420,
+   252
+  ],
+  "OBS_SPOT": [
+   356,
+   230
+  ],
+  "TL_2": [
+   440,
+   362
+  ],
+  "TL_1": [
+   350,
+   380
+  ],
+  "TL_SPOT": [
+   268,
+   382
+  ],
+  "VA_3": [
+   535,
+   448
+  ],
+  "VA_2": [
+   482,
+   502
+  ],
+  "VA_1": [
+   420,
+   560
+  ],
+  "VA_SPOT": [
+   335,
+   585
+  ],
+  "GH_0": [
+   500,
+   566
+  ],
+  "GH_1": [
+   560,
+   664
+  ],
+  "GH_SPOT": [
+   640,
+   668
+  ],
+  "SH_1": [
+   790,
+   462
+  ],
+  "SH_2": [
+   850,
+   532
+  ],
+  "SH_SPOT": [
+   928,
+   576
+  ],
+  "FO_1": [
+   800,
+   270
+  ],
+  "FO_SPOT": [
+   856,
+   262
+  ],
+  "FO_2": [
+   960,
+   250
+  ],
+  "WT_SPOT": [
+   1205,
+   292
+  ],
+  "RE_1": [
+   862,
+   376
+  ],
+  "RE_2": [
+   962,
+   406
+  ],
+  "RE_SPOT": [
+   1076,
+   410
+  ],
+  "GH_W": [
+   520,
+   632
+  ],
+  "RE_3": [
+   1170,
+   405
+  ],
+  "WT_2": [
+   1228,
+   372
+  ],
+  "WT_3": [
+   1215,
+   316
+  ],
+  "GH_Q1_SPOT": [
+   612,
+   652
+  ],
+  "GH_Q2_SPOT": [
+   672,
+   652
+  ],
+  "FISH_SPOT": [
+   992,
+   646
+  ]
+ },
+ "edges": [
+  [
+   "P_N",
+   "P_NW"
+  ],
+  [
+   "P_NW",
+   "P_W"
+  ],
+  [
+   "P_W",
+   "P_SW"
+  ],
+  [
+   "P_SW",
+   "P_S"
+  ],
+  [
+   "P_S",
+   "P_SE"
+  ],
+  [
+   "P_SE",
+   "P_E"
+  ],
+  [
+   "P_E",
+   "P_NE"
+  ],
+  [
+   "P_NE",
+   "P_N"
+  ],
+  [
+   "P_N",
+   "HQ_MID"
+  ],
+  [
+   "HQ_MID",
+   "HQ_SPOT"
+  ],
+  [
+   "P_NW",
+   "OBS_2"
+  ],
+  [
+   "OBS_2",
+   "OBS_1"
+  ],
+  [
+   "OBS_1",
+   "OBS_SPOT"
+  ],
+  [
+   "P_W",
+   "TL_2"
+  ],
+  [
+   "TL_2",
+   "TL_1"
+  ],
+  [
+   "TL_1",
+   "TL_SPOT"
+  ],
+  [
+   "P_SW",
+   "VA_3"
+  ],
+  [
+   "VA_3",
+   "VA_2"
+  ],
+  [
+   "VA_2",
+   "VA_1"
+  ],
+  [
+   "VA_1",
+   "VA_SPOT"
+  ],
+  [
+   "VA_1",
+   "GH_0"
+  ],
+  [
+   "GH_1",
+   "GH_SPOT"
+  ],
+  [
+   "P_SE",
+   "SH_1"
+  ],
+  [
+   "SH_1",
+   "SH_2"
+  ],
+  [
+   "SH_2",
+   "SH_SPOT"
+  ],
+  [
+   "P_NE",
+   "FO_1"
+  ],
+  [
+   "FO_1",
+   "FO_SPOT"
+  ],
+  [
+   "FO_SPOT",
+   "FO_2"
+  ],
+  [
+   "P_E",
+   "RE_1"
+  ],
+  [
+   "RE_1",
+   "RE_2"
+  ],
+  [
+   "RE_2",
+   "RE_SPOT"
+  ],
+  [
+   "GH_0",
+   "GH_W"
+  ],
+  [
+   "GH_W",
+   "GH_1"
+  ],
+  [
+   "RE_SPOT",
+   "RE_3"
+  ],
+  [
+   "RE_3",
+   "WT_2"
+  ],
+  [
+   "WT_2",
+   "WT_3"
+  ],
+  [
+   "WT_3",
+   "WT_SPOT"
+  ],
+  [
+   "GH_SPOT",
+   "GH_Q1_SPOT"
+  ],
+  [
+   "GH_SPOT",
+   "GH_Q2_SPOT"
+  ],
+  [
+   "GH_1",
+   "GH_Q1_SPOT"
+  ],
+  [
+   "SH_SPOT",
+   "FISH_SPOT"
+  ]
+ ],
+ "buildings": {
+  "LEAD_HQ": {
+   "label": "Lead HQ",
+   "role": "LEAD",
+   "spot": "HQ_SPOT",
+   "rect": [
+    540,
+    60,
+    215,
+    160
+   ],
+   "about": "Coordenação: classifica a missão, escolhe a profundidade da spec e controla o orçamento."
+  },
+  "OBSERVATORY": {
+   "label": "Observatory",
+   "role": "EXPLORER",
+   "spot": "OBS_SPOT",
+   "rect": [
+    262,
+    30,
+    148,
+    190
+   ],
+   "about": "Exploração: mapeia o repositório e responde perguntas delimitadas."
+  },
+  "RE_LAB": {
+   "label": "RE Lab",
+   "role": "RE_ANALYST",
+   "spot": "RE_SPOT",
+   "rect": [
+    965,
+    232,
+    220,
+    170
+   ],
+   "about": "Engenharia reversa autorizada (REA) e Evidence Capsules."
+  },
+  "SPEC_HALL": {
+   "label": "Spec Hall",
+   "role": "SPEC_ARCHITECT",
+   "spot": "SH_SPOT",
+   "rect": [
+    840,
+    405,
+    262,
+    165
+   ],
+   "about": "Specs adaptativas S0–S4 e critérios de aceite."
+  },
+  "FORGE": {
+   "label": "Forge",
+   "role": "WORKER",
+   "spot": "FO_SPOT",
+   "rect": [
+    805,
+    55,
+    212,
+    175
+   ],
+   "about": "Implementação a partir da spec aceita."
+  },
+  "WATCHTOWER": {
+   "label": "Watchtower",
+   "role": "REVIEWER",
+   "spot": "WT_SPOT",
+   "rect": [
+    1112,
+    40,
+    125,
+    240
+   ],
+   "about": "Revisão de diff, riscos e aderência à spec."
+  },
+  "TEST_LAB": {
+   "label": "Test Lab",
+   "role": "QA",
+   "spot": "TL_SPOT",
+   "rect": [
+    85,
+    228,
+    230,
+    165
+   ],
+   "about": "Testes derivados dos critérios de aceite e benchmarks."
+  },
+  "CONTEXT_VAULT": {
+   "label": "Context Vault",
+   "role": null,
+   "spot": "VA_SPOT",
+   "rect": [
+    205,
+    405,
+    240,
+    175
+   ],
+   "about": "Memória local: specs, evidências e cápsulas mínimas por papel."
+  },
+  "GATEHOUSE": {
+   "label": "Gatehouse",
+   "role": "RELEASE_GATE",
+   "spot": "GH_SPOT",
+   "rect": [
+    525,
+    490,
+    240,
+    165
+   ],
+   "about": "Release Gate: só libera com evidência real."
+  }
+ },
+ "social": [
+  [
+   "P_S",
+   "P_SE"
+  ],
+  [
+   "P_W",
+   "P_SW"
+  ],
+  [
+   "P_NE",
+   "P_E"
+  ],
+  [
+   "SH_2",
+   "SH_SPOT"
+  ]
+ ],
+ "occluders": [
+  {
+   "id": "fountain",
+   "baseline": 396,
+   "poly": [
+    [
+     566,
+     350
+    ],
+    [
+     590,
+     327
+    ],
+    [
+     625,
+     318
+    ],
+    [
+     628,
+     262
+    ],
+    [
+     645,
+     248
+    ],
+    [
+     662,
+     262
+    ],
+    [
+     668,
+     318
+    ],
+    [
+     703,
+     327
+    ],
+    [
+     728,
+     350
+    ],
+    [
+     728,
+     378
+    ],
+    [
+     700,
+     394
+    ],
+    [
+     600,
+     396
+    ],
+    [
+     566,
+     378
+    ]
+   ],
+   "image": "assets/occluder-fountain.png",
+   "at": [
+    566,
+    248
+   ]
+  }
+ ],
+ "lights": [
+  {
+   "kind": "lamp",
+   "x": 565,
+   "y": 252
+  },
+  {
+   "kind": "lamp",
+   "x": 459,
+   "y": 294
+  },
+  {
+   "kind": "lamp",
+   "x": 534,
+   "y": 411
+  },
+  {
+   "kind": "lamp",
+   "x": 172,
+   "y": 407
+  },
+  {
+   "kind": "lamp",
+   "x": 723,
+   "y": 253
+  },
+  {
+   "kind": "lamp",
+   "x": 829,
+   "y": 293
+  },
+  {
+   "kind": "lamp",
+   "x": 941,
+   "y": 334
+  },
+  {
+   "kind": "lamp",
+   "x": 762,
+   "y": 411
+  },
+  {
+   "kind": "lamp",
+   "x": 1112,
+   "y": 413
+  },
+  {
+   "kind": "lamp",
+   "x": 504,
+   "y": 445
+  },
+  {
+   "kind": "lamp",
+   "x": 481,
+   "y": 479
+  },
+  {
+   "kind": "lamp",
+   "x": 815,
+   "y": 483
+  },
+  {
+   "kind": "lamp",
+   "x": 800,
+   "y": 449
+  },
+  {
+   "kind": "lamp",
+   "x": 796,
+   "y": 504
+  },
+  {
+   "kind": "lamp",
+   "x": 1022,
+   "y": 597
+  },
+  {
+   "kind": "lamp",
+   "x": 970,
+   "y": 630
+  },
+  {
+   "kind": "lamp",
+   "x": 1133,
+   "y": 669
+  },
+  {
+   "kind": "lamp",
+   "x": 830,
+   "y": 233
+  },
+  {
+   "kind": "lamp",
+   "x": 286,
+   "y": 525
+  },
+  {
+   "kind": "lamp",
+   "x": 396,
+   "y": 519
+  },
+  {
+   "kind": "lamp",
+   "x": 1050,
+   "y": 536
+  },
+  {
+   "kind": "lamp",
+   "x": 723,
+   "y": 608
+  },
+  {
+   "kind": "lamp",
+   "x": 613,
+   "y": 175
+  },
+  {
+   "kind": "lamp",
+   "x": 601,
+   "y": 176
+  },
+  {
+   "kind": "lamp",
+   "x": 680,
+   "y": 175
+  },
+  {
+   "kind": "lamp",
+   "x": 694,
+   "y": 170
+  },
+  {
+   "kind": "lamp",
+   "x": 990,
+   "y": 184
+  },
+  {
+   "kind": "lamp",
+   "x": 1116,
+   "y": 366
+  },
+  {
+   "kind": "lamp",
+   "x": 1188,
+   "y": 125
+  },
+  {
+   "kind": "lamp",
+   "x": 1213,
+   "y": 122
+  },
+  {
+   "kind": "lamp",
+   "x": 1073,
+   "y": 581
+  },
+  {
+   "kind": "window",
+   "x": 646,
+   "y": 132
+  },
+  {
+   "kind": "window",
+   "x": 657,
+   "y": 138
+  },
+  {
+   "kind": "window",
+   "x": 678,
+   "y": 135
+  },
+  {
+   "kind": "window",
+   "x": 611,
+   "y": 139
+  },
+  {
+   "kind": "window",
+   "x": 646,
+   "y": 151
+  },
+  {
+   "kind": "window",
+   "x": 294,
+   "y": 150
+  },
+  {
+   "kind": "window",
+   "x": 353,
+   "y": 153
+  },
+  {
+   "kind": "window",
+   "x": 341,
+   "y": 155
+  },
+  {
+   "kind": "window",
+   "x": 108,
+   "y": 321
+  },
+  {
+   "kind": "window",
+   "x": 644,
+   "y": 553
+  },
+  {
+   "kind": "window",
+   "x": 939,
+   "y": 469
+  },
+  {
+   "kind": "window",
+   "x": 951,
+   "y": 471
+  },
+  {
+   "kind": "window",
+   "x": 873,
+   "y": 504
+  },
+  {
+   "kind": "window",
+   "x": 1074,
+   "y": 522
+  },
+  {
+   "kind": "window",
+   "x": 1023,
+   "y": 538
+  },
+  {
+   "kind": "window",
+   "x": 1026,
+   "y": 460
+  },
+  {
+   "kind": "window",
+   "x": 836,
+   "y": 173
+  },
+  {
+   "kind": "window",
+   "x": 929,
+   "y": 504
+  },
+  {
+   "kind": "window",
+   "x": 961,
+   "y": 495
+  },
+  {
+   "kind": "window",
+   "x": 975,
+   "y": 500
+  },
+  {
+   "kind": "window",
+   "x": 901,
+   "y": 513
+  },
+  {
+   "kind": "window",
+   "x": 955,
+   "y": 519
+  },
+  {
+   "kind": "window",
+   "x": 969,
+   "y": 525
+  },
+  {
+   "kind": "window",
+   "x": 946,
+   "y": 527
+  },
+  {
+   "kind": "window",
+   "x": 988,
+   "y": 531
+  },
+  {
+   "kind": "fire",
+   "x": 887,
+   "y": 168
+  },
+  {
+   "kind": "crystal-blue",
+   "x": 645,
+   "y": 295
+  },
+  {
+   "kind": "crystal-violet",
+   "x": 1065,
+   "y": 322
+  },
+  {
+   "kind": "crystal-purple",
+   "x": 345,
+   "y": 500
+  },
+  {
+   "kind": "flask-green",
+   "x": 185,
+   "y": 290
+  },
+  {
+   "kind": "flask-green",
+   "x": 148,
+   "y": 330
+  },
+  {
+   "kind": "screen-cyan",
+   "x": 275,
+   "y": 345
+  },
+  {
+   "kind": "screen-cyan",
+   "x": 1000,
+   "y": 345
+  },
+  {
+   "kind": "screen-cyan",
+   "x": 965,
+   "y": 368
+  }
+ ],
+ "fountain": {
+  "label": "Fonte de Elixir",
+  "rect": [
+   572,
+   248,
+   168,
+   152
+  ],
+  "about": "Cota real dos planos (Claude Pro e Codex Plus). Clique para atualizar a leitura; nunca repõe créditos."
+ },
+ "attention": {
+  "queue": [
+   "GH_Q1_SPOT",
+   "GH_Q2_SPOT",
+   "GH_1"
+  ],
+  "keeper": "RELEASE_GATE",
+  "about": "Fila do Gatehouse: avatares com um pedido real esperando a sua resposta."
+ },
+ "camps": {
+  "plots": [
+   [
+    205,
+    452
+   ],
+   [
+    918,
+    618
+   ],
+   [
+    1218,
+    494
+   ],
+   [
+    878,
+    338
+   ],
+   [
+    1050,
+    612
+   ],
+   [
+    425,
+    335
+   ]
+  ],
+  "about": "Lotes do acampamento: uma barraca por projeto com sessão real."
+ }
+}

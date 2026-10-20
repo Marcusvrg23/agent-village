@@ -4,12 +4,14 @@ const { mkdir, writeFile } = require('node:fs/promises');
 const os = require('node:os');
 
 const smoke = process.argv.includes('--smoke-test');
+// The desktop app opens the Agent Village; `--ops-room` opens the original Ops Room screen instead.
+const startPath = process.argv.includes('--ops-room') ? '/' : '/village/';
 const smokeDir = process.env.OPS_ROOM_SMOKE_DIR || path.join(os.tmpdir(), 'codex-ops-room-smoke');
 let backend;
 let window;
 let quitting = false;
 const consoleErrors = [];
-app.setName('Codex Ops Room');
+app.setName('Codex Ops Room'); // kept: the name decides the profile folder (saved preferences stay put)
 app.commandLine.appendSwitch('disable-background-networking');
 if (smoke) {
   // Test profile is isolated from the user's normal desktop app profile.
@@ -40,7 +42,7 @@ async function launch() {
   const origin = `http://127.0.0.1:${port}`;
   window = new BrowserWindow({
     width: 1440, height: 880, minWidth: 880, minHeight: 570,
-    title: 'Codex Ops Room', backgroundColor: '#07111c', show: !smoke,
+    title: 'Agent Village', backgroundColor: '#0b1230', show: !smoke,
     autoHideMenuBar: true,
     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, partition: 'ops-room' },
   });
@@ -62,9 +64,13 @@ async function launch() {
   backend.on('exit', (code) => {
     if (!quitting && !smoke) dialog.showErrorBox('Codex Ops Room', `O backend local foi encerrado (${code}). Reabra o aplicativo.`);
   });
-  await window.loadURL(origin);
-  window.setTitle(`Codex Ops Room — ${origin}`);
-  if (smoke) await smokeTest(origin);
+  if (smoke) {
+    await window.loadURL(`${origin}/`);
+    await smokeTest(origin);
+    return;
+  }
+  await window.loadURL(`${origin}${startPath}`);
+  window.setTitle(`${startPath === '/' ? 'Codex Ops Room' : 'Agent Village'} — ${origin}`);
 }
 
 async function smokeTest(origin) {
@@ -86,9 +92,27 @@ async function smokeTest(origin) {
   } while (Date.now() < deadline);
   const health = await (await fetch(`${origin}/api/health`)).json();
   const state = await (await fetch(`${origin}/api/state`)).json();
+  // Agent Village: canvas world renders, control plane answers, nothing reaches Node.
+  await window.loadURL(`${origin}/village/`);
+  const readVillage = () => window.webContents.executeJavaScript(`({
+    loaded: document.querySelector('#loading')?.hidden === true,
+    canvas: Boolean(document.querySelector('#world')?.width),
+    runtime: document.querySelector('#runtime')?.textContent,
+    hasNode: typeof window.require !== 'undefined'
+  })`);
+  let village;
+  const villageDeadline = Date.now() + 20_000;
+  do {
+    village = await readVillage();
+    if (village.loaded && village.runtime && !/verificando/.test(village.runtime)) break;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  } while (Date.now() < villageDeadline);
+  const villageState = await (await fetch(`${origin}/api/village/state`)).json();
+  const villagePass = village.loaded && village.canvas && !village.hasNode && villageState.policy?.allowedApiSpendUsd === 0;
   const pass = ui.connection === 'LIVE' && ui.imageLoaded && ui.agentButtons === 5 && !ui.hasNode &&
-    health.watcher && health.host === '127.0.0.1' && state.room.agents.length > 0 && consoleErrors.length === 0;
+    health.watcher && health.host === '127.0.0.1' && state.room.agents.length > 0 && consoleErrors.length === 0 && villagePass;
   const report = { pass, packaged: app.isPackaged, executable: process.execPath, origin, ui,
+    village: { ...village, control: villageState.control, adapters: Object.fromEntries(Object.entries(villageState.adapters ?? {}).map(([k, v]) => [k, v.status])) },
     health, agentCount: state.room.agents.length, recognizedEvents: state.debug.recognizedEvents,
     readOnly: state.debug.readOnly, consoleErrors, metrics: app.getAppMetrics().map(({ type, memory }) => ({ type, memory })) };
   await mkdir(smokeDir, { recursive: true });

@@ -2,17 +2,20 @@
   "name": "codex-ops-room",
   "version": "1.0.0",
   "private": true,
-  "description": "Local, read-only live monitor for Codex session activity.",
+  "description": "Agent Village: vila local dos seus agentes Claude Code e Codex (e o Codex Ops Room original).",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
     "start": "node server.js",
     "ops-room": "node scripts/ops-room.mjs",
+    "village": "node scripts/ops-room.mjs --village",
+    "village:setup": "node scripts/village-setup.mjs",
     "test": "node --test",
     "inspect:rollout": "node scripts/inspect-rollout.mjs",
     "desktop": "electron .",
-    "package:windows": "node scripts/package-windows.mjs",
-    "build:sprites": "electron scripts/build-sprites.cjs"
+    "package:windows": "node scripts/package-desktop.mjs --platform win32 --arch x64",
+    "build:sprites": "electron scripts/build-sprites.cjs",
+    "package:desktop": "node scripts/package-desktop.mjs"
   },
   "engines": {
     "node": ">=20"

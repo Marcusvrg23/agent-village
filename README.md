@@ -77,6 +77,21 @@ Tudo roda no seu computador. A vila lê os arquivos que o Claude Code e o Codex 
   </tr>
 </table>
 
+## Equipe real: sessões e conversas de agentes (opt-in)
+
+Em **Missões**, marque **Equipe real — 2 sessões independentes** antes de analisar o prompt. Depois de aprovar explicitamente a execução, a vila inicia duas sessões de CLI genuínas e distintas na mesma conta de assinatura escolhida:
+
+1. **LEAD** planeja enquanto **WORKER** explora o projeto, ambos em leitura e em paralelo.
+2. O plano produzido pelo LEAD é entregue ao WORKER como uma mensagem de handoff registrada.
+3. WORKER continua na **mesma sessão** via `claude --resume` / `codex exec resume` e executa a tarefa, respeitando a permissão aprovada.
+4. A entrega do WORKER é repassada ao LEAD, que continua a **própria sessão** para revisar em leitura.
+
+Em **Missões recentes → Conversas e sessões da equipe**, veja os IDs, os turnos e a transcrição autenticada pelo controlador. Também é possível clicar em um avatar com sessão ativa e selecionar **Abrir sessão e conversa**. O diálogo é gravado em `~/.agent-village/orchestrator/missions/<id>/team-conversation.jsonl` (o caminho real depende de `AGENT_VILLAGE_HOME`).
+
+**Limites e integridade:** o modo é opcional; consome quatro turnos de assinatura em dois processos, não usa API paga e mantém o firewall de cobrança, aprovação para alterações e o limite máximo de três processos. Apenas o WORKER pode editar, quando aprovado. Nenhuma conversa é inventada: as mensagens exigem entrada real de CLI; erros, ausência de resposta e IDs de sessão incompatíveis bloqueiam a entrega. Transcrições são locais e **não são expostas pelo acesso LAN pareado**. Não confunda a animação ociosa da vila com atividade real.
+
+Esta é a versão inicial de colaboração com **dois agentes**. Os outros papéis do mapa continuam avatares de monitoramento, não oito sessões autônomas. Missões antigas não têm transcrições dessa equipe; o recurso vale para novas execuções.
+
 ## Por que a Agent Village
 
 | | |

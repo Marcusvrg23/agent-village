@@ -265,16 +265,11 @@ export class Orchestrator extends EventEmitter {
     mission.result = null;
     this.vault.save(mission);
     this.vault.audit({ action: 'run', missionId: mission.id, adapter: adapterId });
-    this.emitVillage({ type: 'agent.spawned', source: 'orchestrator-controlled', missionId: mission.id, provider: adapter.runtime ?? runtimeOf({ id: adapterId }), account: adapter.account?.id ?? null, role: 'LEAD', agentId: `${mission.id}:lead`, label: mission.goal });
+    if (!mission.team) this.emitVillage({ type: 'agent.spawned', source: 'orchestrator-controlled', missionId: mission.id, provider: adapter.runtime ?? runtimeOf({ id: adapterId }), account: adapter.account?.id ?? null, role: 'LEAD', agentId: `${mission.id}:lead`, label: mission.goal });
     let handle;
     if (mission.team) {
       mission.teamAgents = {};
       this.vault.clearTeamMessages(mission.id);
-      for (const role of ['LEAD', 'WORKER']) this.emitVillage({
-        type: 'agent.spawned', source: 'orchestrator-controlled', missionId: mission.id,
-        provider: adapter.runtime ?? runtimeOf({ id: adapterId }), account: adapter.account?.id ?? null,
-        role, agentId: `${mission.id}:${role}`, label: role === 'LEAD' ? 'Planejamento e revisão' : 'Execução',
-      });
       handle = runRealTeam({
         mission, adapter,
         onEvent: (e) => this.#onAdapterEvent(mission, e),
@@ -282,7 +277,7 @@ export class Orchestrator extends EventEmitter {
           mission.teamAgents[agent.role] = agent;
           this.vault.save(mission);
           this.emitVillage({
-            type: 'agent.state', source: 'orchestrator-controlled', missionId: mission.id,
+            type: agent.status === 'running' && agent.turns === 0 ? 'agent.spawned' : 'agent.state', source: 'orchestrator-controlled', missionId: mission.id,
             provider: adapter.runtime ?? runtimeOf({ id: adapterId }), role: agent.role,
             agentId: `${mission.id}:${agent.role}`,
             state: agent.status === 'running' ? (agent.role === 'LEAD' ? 'planning' : 'working') : agent.status,

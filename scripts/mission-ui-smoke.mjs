@@ -125,8 +125,52 @@ try {
   await page.screenshot({ path: screenshotDetail, fullPage: true });
   await page.locator('#missions-close').click();
   await page.screenshot({ path: screenshotWorld, fullPage: true });
+  // Genuine two-session mission: complete both independent processes, perform two durable handoffs,
+  // and exercise the team chat UI with the browser (fixture does not generate invented avatar dialogue).
+  const teamMission = await page.evaluate(async ({ project }) => {
+    const state = await (await fetch('/api/village/state')).json();
+    const post = async (url, body) => {
+      const res = await fetch(url, { method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-village-token': state.token },
+        body: JSON.stringify(body) });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    };
+    const m = await post('/api/village/missions', {
+      prompt: 'Implemente uma nova tela de relatórios e rode os testes',
+      cwd: project, runtime: 'codex', mode: 'read', team: true,
+    });
+    await post('/api/village/missions/' + m.id + '/approve', {});
+    return m;
+  }, { project });
+  let teamState;
+  for (let i = 0; i < 160; i++) {
+    const state = await (await fetch(base + '/api/village/state')).json();
+    teamState = state.missions.find((m) => m.id === teamMission.id);
+    if (teamState?.status === 'completed') break;
+    if (teamState?.status === 'failed') throw new Error('A equipe falhou: ' + JSON.stringify(teamState.result));
+    await sleep(250);
+  }
+  assert.equal(teamState?.status, 'completed', 'real team must complete');
+  assert.notEqual(teamState.teamAgents?.LEAD?.sessionId, teamState.teamAgents?.WORKER?.sessionId);
+  assert.equal(teamState.teamAgents?.LEAD?.turns, 2);
+  assert.equal(teamState.teamAgents?.WORKER?.turns, 2);
+  assert.equal(teamState.gate.checks.find(x => x.id === 'review').status, 'PASS');
+  const teamPayload = await (await fetch(base + '/api/village/missions/' + teamMission.id + '/team')).json();
+  assert.equal(teamPayload.messages.filter(m => m.kind === 'reply').length, 4);
+  assert.equal(teamPayload.messages.filter(m => m.kind === 'handoff').length, 2);
+  const screenshotTeam = path.join(artifacts, 'agent-village-equipe-real.png');
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.locator('#open-missions').click();
+  await page.locator('#mission-list .mission').first().getByText('Conversas e sessões da equipe').click();
+  await page.locator('#team-body .team-message').first().waitFor({ timeout: 15000 });
+  await page.screenshot({ path: screenshotTeam, fullPage: true });
+  await page.getByRole('button', { name: 'LEAD', exact: true }).last().click();
+  await page.locator('#team-body .team-message').first().waitFor();
+  assert.equal(await page.locator('#team-body .team-agent').count(), 2);
+  await page.locator('#team-close').click();
   assert.equal(errors.length, 0, 'sem erros JS: ' + errors.join('; '));
-  const report = { ok: true, branch: 'fix/mission-complete-output', missionId: mission.id,
+  const report = { ok: true, branch: 'feat/real-agent-team-v1', teamMissionId: teamMission.id, teamSessions: teamState.teamAgents, teamMessages: teamPayload.messages.length, teamScreenshot: path.basename(screenshotTeam), missionId: mission.id,
     status: completed.status, gate: completed.gate.status,
     outputBytes: Buffer.byteLength(output), truncated: output !== responseText,
     screenshotDetail: path.basename(screenshotDetail),

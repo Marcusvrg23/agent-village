@@ -68,13 +68,3 @@ jobs:
           name: agent-village-smoke-visual
           path: artifacts/mission-smoke/
           if-no-files-found: warn
-      - name: Adicionar screenshots na branch para revisão
-        if: success()
-        run: |
-          mkdir -p docs/screenshots/mission-smoke
-          cp artifacts/mission-smoke/*.png docs/screenshots/mission-smoke/
-          cp artifacts/mission-smoke/smoke-report.json docs/screenshots/mission-smoke/
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/screenshots/mission-smoke/
-          git diff --cached --quiet || (git commit -m "docs: screenshot real do smoke visual da missão" && git push origin HEAD:fix/mission-complete-output)

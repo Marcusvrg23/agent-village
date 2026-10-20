@@ -26,11 +26,12 @@ Branch `feat/agent-village` em `Marcusvrg23/agent-village`. Sem merge em `main`,
 | Celular | PASS | Sem pareamento 401; código errado 403; certo devolve cookie HttpOnly/SameSite=Strict; o estado do celular não traz caminhos; missões pelo celular 403; Host estranho na porta principal 403. |
 | Navegador (Chromium) | PASS | Mão levantada no Gatehouse, cartões, aviso de terminal, pareamento e pedido no celular (390×780), acampamentos, ampulheta com balão, pedra-papel-tesoura, bola, pescaria, editor de visuais (escolha salva e reaplicada após recarregar). 0 erros de console. |
 | Desempenho | PASS | CPU 6× mais lenta (headless, 1366×768): 30 fps de dia e 29 fps à noite com chuva. |
-| Docker (modo simulado) | PASS parcial | Com `VILLAGE_IN_DOCKER=1` o servidor escuta dentro do container, a execução fica desligada mesmo com `VILLAGE_CONTROL=1` e o `hook.json` sai com permissão 600. O build da imagem não roda aqui (o Docker Hub é bloqueado neste ambiente): fica para o job `docker` do CI. |
+| CI nos 3 sistemas | PASS | GitHub Actions, run 39416981842 (commit `d6c1df3`): ubuntu, macOS e Windows com Node 20 e 22, todos verdes. |
+| Docker | PASS | Mesmo run: imagem montada com `docker compose up -d --build`; `/api/health`, `/village/`, orçamento US$ 0 e `"control":false` conferidos dentro do container. Localmente: `hook.json` com permissão 600. |
 
 ## Limites honestos
 
 - **Nada disso foi testado com o Claude Code e o Codex reais logados na sua conta.** Todo E2E usou CLIs falsas que imitam os formatos oficiais. Primeiro teste real sugerido: `npm run village:setup -- hooks install --yes`, abrir a vila, abrir uma sessão nova do Claude Code e pedir algo que exija permissão.
 - O hook do Codex foi conferido contra o código atual do openai/codex; não confirmei que o codex-cli 0.160.0 já carrega `hooks.json`. Se não carregar, os pedidos do Codex continuam só no terminal.
-- macOS e Linux não foram testados num computador de verdade aqui; quem prova é o CI (resultado no GitHub Actions).
+- macOS e Linux passaram no CI (servidores do GitHub), mas o app desktop empacotado ainda não foi aberto num Mac ou Linux de verdade.
 - A conexão do celular na rede local é HTTP: use só em rede de confiança.

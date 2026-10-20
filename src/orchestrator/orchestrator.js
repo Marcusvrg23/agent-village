@@ -257,6 +257,8 @@ export class Orchestrator extends EventEmitter {
     mission.status = 'running';
     mission.startedAt = new Date(this.now()).toISOString();
     mission.observed = { states: [], tools: 0, denials: 0, reaUsed: false };
+    this.vault.clearResult(mission.id);
+    mission.result = null;
     this.vault.save(mission);
     this.vault.audit({ action: 'run', missionId: mission.id, adapter: adapterId });
     this.emitVillage({ type: 'agent.spawned', source: 'orchestrator-controlled', missionId: mission.id, provider: adapter.runtime ?? runtimeOf({ id: adapterId }), account: adapter.account?.id ?? null, role: 'LEAD', agentId: `${mission.id}:lead`, label: mission.goal });

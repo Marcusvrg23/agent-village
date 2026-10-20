@@ -18,6 +18,7 @@ import { ContextVault, newMissionId, redact } from './vault.js';
 
 const PROBE_TTL_MS = 5 * 60_000;
 const PROMPT_MAX = 12_000;
+const RESULT_PREVIEW_MAX = 800; // Full text is stored in result.md, never streamed every 5s.
 
 export function allowedRoots(env = process.env, home = os.homedir()) {
   const raw = (env.VILLAGE_PROJECT_ROOTS ?? '').split(/[;\n]/).map((s) => s.trim()).filter(Boolean);
@@ -293,11 +294,19 @@ export class Orchestrator extends EventEmitter {
 
   #finish(mission, adapterId, result) {
     this.running.delete(mission.id);
-    mission.result = { ok: result.ok, error: result.error ?? null, exitCode: result.exitCode ?? null, sessionId: result.sessionId ?? mission.sessionId ?? null, summary: result.resultText ? redact(result.resultText) : null };
+    const fullText = typeof result.resultText === 'string' && result.resultText.trim() ? redact(result.resultText) : null;
+    // Keep the complete result outside mission.json and recurring SSE state. Never truncate the downloadable artifact.
+    if (fullText !== null) this.vault.writeArtifact(mission.id, 'result.md', fullText);
+    mission.result = {
+      ok: result.ok, error: result.error ?? null, exitCode: result.exitCode ?? null,
+      sessionId: result.sessionId ?? mission.sessionId ?? null,
+      summary: fullText ? fullText.slice(0, RESULT_PREVIEW_MAX) : null,
+      hasOutput: fullText !== null,
+    };
     if (result.usage && mission.result.sessionId) this.ledger.record({ provider: adapterId, sessionId: mission.result.sessionId, missionId: mission.id, usage: result.usage, source: `${adapterId}-run` });
     mission.observed.denials = Math.max(mission.observed.denials, result.denials ?? 0);
     mission.finishedAt = new Date(this.now()).toISOString();
-    mission.gate = evaluateGate(mission, { ...mission.observed, ok: result.ok, error: result.error });
+    mission.gate = evaluateGate(mission, { ...mission.observed, ok: result.ok, error: result.error, hasOutput: fullText !== null });
     mission.status = result.ok ? 'completed' : 'failed';
     this.vault.save(mission);
     this.vault.writeArtifact(mission.id, 'release.md', [`# Release Gate — ${mission.id}`, '', `**Status:** ${mission.gate.status}`, '',
@@ -335,9 +344,18 @@ export class Orchestrator extends EventEmitter {
       id: m.id, goal: m.goal, status: m.status, level: m.level, levelLabel: m.levelLabel, pipeline: m.pipeline, classification: m.classification,
       runtime: m.runtime, mode: m.mode, cwd: m.cwd, target: m.target, adapter: m.adapter ?? null, preflight: m.preflight, blockers: m.blockers, notes: m.notes ?? [],
       createdAt: m.createdAt, startedAt: m.startedAt ?? null, finishedAt: m.finishedAt ?? null, gate: m.gate ?? null,
-      result: m.result ? { ok: m.result.ok, error: m.result.error, summary: m.result.summary } : null,
+      result: m.result ? { ok: m.result.ok, error: m.result.error, summary: m.result.summary?.slice(0, RESULT_PREVIEW_MAX) ?? null, hasOutput: m.result.hasOutput ?? Boolean(m.result.summary) } : null,
       usage: this.ledger.totals().byMission[m.id] ?? null, observed: m.observed ?? null,
     };
+  }
+
+  /** Full output is only fetched explicitly on the computer (never through the LAN view or recurring SSE). */
+  missionOutput(id) {
+    const mission = this.missions.get(id) ?? this.vault.load(id);
+    if (!mission) throw Object.assign(new Error('Missão não encontrada.'), { status: 404 });
+    const content = this.vault.readArtifact(id, 'result.md') ?? mission.result?.summary ?? null;
+    if (content === null) throw Object.assign(new Error('Esta missão não possui resposta final armazenada. Missões antigas do Codex precisam ser executadas novamente.'), { status: 404 });
+    return content;
   }
 
   publicProbes() {

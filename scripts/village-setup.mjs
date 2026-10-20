@@ -29,24 +29,24 @@ export function settingsPath(env = process.env, home = os.homedir()) {
   return path.join(dir, 'settings.json');
 }
 
-// Status line and Codex hooks run through a shell; on Windows that can be PowerShell, where a quoted
-// "C:\\Program Files\\nodejs\\node.exe" is a string, not a command. Bare `node` (on PATH) works in every shell.
-export const shellNode = (platform = process.platform) => (platform === 'win32' ? 'node' : process.execPath);
-const quote = (p) => (/[\s"'&()]/.test(p) ? `"${p.replace(/"/g, '\\"')}"` : p);
+// Claude Code runs the status line through Git Bash on Windows, where an unquoted C:\Users\... loses its
+// backslashes. Forward slashes inside quotes read the same in bash, cmd and PowerShell, and Node accepts them.
+const shellPath = (p) => `"${p.replace(/\\/g, '/').replace(/"/g, '\\"')}"`;
 
 /** Pure planner (tested): returns {action, before, after} for a settings object. */
-export function planStatusline(settings, action, nodeBin = shellNode(), tap = TAP) {
+export function planStatusline(settings, action, nodeBin = process.execPath, tap = TAP) {
   const s = settings && typeof settings === 'object' ? structuredClone(settings) : {};
   const cur = s.statusLine && typeof s.statusLine === 'object' ? s.statusLine : null;
   const installed = Boolean(cur?.command?.includes(MARK));
   if (action === 'status') return { action, installed, current: cur };
   if (action === 'install') {
-    // Reinstall updates an older tap command in place (e.g. absolute node path -> bare `node` on Windows).
-    let original = cur?.type === 'command' && typeof cur.command === 'string' ? cur.command : '';
-    if (installed) { const i = original.indexOf(' -- '); original = i >= 0 ? original.slice(i + 4) : ''; }
-    const wanted = `${quote(nodeBin)} ${quote(tap)}${original ? ` -- ${original}` : ''}`;
-    if (installed && cur.command === wanted) return { action, changed: false, reason: 'já instalado', before: s, after: s };
-    const after = { ...s, statusLine: { ...(cur ?? {}), type: 'command', command: wanted } };
+    // Reinstall rewrites our own part in place (repairs older commands), keeping the original after " -- ".
+    const i = installed ? cur.command.indexOf(' -- ') : -1;
+    const original = installed ? (i >= 0 ? cur.command.slice(i + 4) : '')
+      : cur?.type === 'command' && typeof cur.command === 'string' ? cur.command : '';
+    const command = `${shellPath(nodeBin)} ${shellPath(tap)}${original ? ` -- ${original}` : ''}`;
+    if (installed && cur.command === command) return { action, changed: false, reason: 'já instalado', before: s, after: s };
+    const after = { ...s, statusLine: { ...(cur ?? {}), type: 'command', command } };
     return { action, changed: true, before: s, after };
   }
   if (action === 'uninstall') {
@@ -97,7 +97,7 @@ export function planClaudeHooks(settings, action, nodeBin = process.execPath, sc
 }
 
 /** Codex <CODEX_HOME>/hooks.json (pure, tested). Appended at the END of the list: other apps keep their trust. */
-export function planCodexHooks(file, action, nodeBin = shellNode(), script = HOOK) {
+export function planCodexHooks(file, action, nodeBin = process.execPath, script = HOOK) {
   const f = file && typeof file === 'object' ? structuredClone(file) : {};
   const installed = Object.values(f.hooks ?? {}).some((groups) => Array.isArray(groups) && groups.some(groupIsOurs));
   if (action === 'status') return { action, installed };
@@ -106,7 +106,7 @@ export function planCodexHooks(file, action, nodeBin = shellNode(), script = HOO
     return { action, changed: true, before: f, after: { ...f, hooks: withoutOurs(f.hooks) } };
   }
   if (action !== 'install') throw new Error(`Ação desconhecida: ${action}`);
-  const command = `${quote(nodeBin)} ${quote(script)} permission codex`;
+  const command = `${shellPath(nodeBin)} ${shellPath(script)} permission codex`;
   const current = (f.hooks?.PermissionRequest ?? []).find(groupIsOurs);
   if (current && current.hooks.some((h) => h.command === command && h.timeout === CODEX_PERMISSION_TIMEOUT_S)) return { action, changed: false, reason: 'já instalado', before: f, after: f };
   const group = { hooks: [{ type: 'command', command, timeout: CODEX_PERMISSION_TIMEOUT_S, statusMessage: STATUS_MESSAGE }] };

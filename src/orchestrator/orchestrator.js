@@ -8,6 +8,7 @@ import path from 'node:path';
 import { ClaudeCodeAdapter, CodexAdapter } from './adapters.js';
 import { discoverAccounts } from './accounts.js';
 import { evaluateGate } from './gates.js';
+import { runRealTeam } from './real-team.js';
 import { UsageLedger } from './ledger.js';
 import { QuotaStore } from './quota.js';
 import { probeRea, reaAuthorization } from './rea.js';
@@ -181,7 +182,7 @@ export class Orchestrator extends EventEmitter {
 
   // ------------------------------------------------------------------ missions
 
-  async draft({ prompt, cwd, runtime = 'auto', mode = 'read', target = null, authorized = false }) {
+  async draft({ prompt, cwd, runtime = 'auto', mode = 'read', target = null, authorized = false, team = false }) {
     const text = redact(String(prompt ?? '').trim()).slice(0, PROMPT_MAX);
     if (!text) throw Object.assign(new Error('Escreva o pedido da missão.'), { status: 400 });
     if (!['auto', ...POLICY.allowedRuntimeTypes, ...this.keys()].includes(runtime)) throw Object.assign(new Error('Runtime inválido.'), { status: 400 });
@@ -193,7 +194,7 @@ export class Orchestrator extends EventEmitter {
     const mission = {
       id: newMissionId(new Date(this.now())), goal: text.split('\n')[0].slice(0, 160), prompt: text, cwd: dir.ok ? dir.path : cwd ?? null,
       runtime, mode, target: target || null, authorized: Boolean(authorized), level: cls.level, levelLabel: cls.label, pipeline: cls.pipeline,
-      classification: cls.reasons, status: 'draft', createdAt: new Date(this.now()).toISOString(), blockers: [],
+      classification: cls.reasons, status: 'draft', team: team === true, createdAt: new Date(this.now()).toISOString(), blockers: [],
     };
     if (!dir.ok) mission.blockers.push(dir.reason);
     if (!auth.ok) mission.blockers.push(auth.reason);
@@ -233,6 +234,9 @@ export class Orchestrator extends EventEmitter {
     if (!mission) throw Object.assign(new Error('Missão não encontrada.'), { status: 404 });
     if (!this.control) throw Object.assign(new Error('Execução desligada (a vila foi iniciada com VILLAGE_CONTROL=0 ou no Docker): abra a vila sem essa variável para permitir execução real.'), { status: 403 });
     if (this.running.has(id)) throw Object.assign(new Error('Missão já em execução: execução duplicada negada.'), { status: 409 });
+    if ((mission.team && this.running.size) || [...this.running.values()].some((r) => r.team)) {
+      throw Object.assign(new Error('Equipes de duas sessões usam execução exclusiva para evitar colisões e exceder a cota. Aguarde as outras missões.'), { status: 409 });
+    }
     if (!['draft', 'waiting_for_quota', 'queued', 'interrupted', 'failed'].includes(mission.status)) throw Object.assign(new Error(`Missão em estado ${mission.status}.`), { status: 409 });
     if (mission.blockers.length) throw Object.assign(new Error(mission.blockers.join(' ')), { status: 400 });
     if (mission.mode === 'edit' && !confirmEdit) throw Object.assign(new Error('Missão com edição exige confirmação explícita.'), { status: 400 });
@@ -261,12 +265,46 @@ export class Orchestrator extends EventEmitter {
     mission.result = null;
     this.vault.save(mission);
     this.vault.audit({ action: 'run', missionId: mission.id, adapter: adapterId });
-    this.emitVillage({ type: 'agent.spawned', source: 'orchestrator-controlled', missionId: mission.id, provider: adapter.runtime ?? runtimeOf({ id: adapterId }), account: adapter.account?.id ?? null, role: 'LEAD', agentId: `${mission.id}:lead`, label: mission.goal });
-    const handle = adapter.run({
-      prompt: `${mission.capsule}\n\nPedido do operador:\n${mission.prompt}`, cwd: mission.cwd, mode: mission.mode, name: `village-${mission.id}`,
-      onEvent: (e) => this.#onAdapterEvent(mission, e),
-    });
-    this.running.set(mission.id, { handle, adapter: adapterId, startedAt: this.now() });
+    if (!mission.team) this.emitVillage({ type: 'agent.spawned', source: 'orchestrator-controlled', missionId: mission.id, provider: adapter.runtime ?? runtimeOf({ id: adapterId }), account: adapter.account?.id ?? null, role: 'LEAD', agentId: `${mission.id}:lead`, label: mission.goal });
+    let handle;
+    if (mission.team) {
+      mission.teamAgents = {};
+      this.vault.clearTeamMessages(mission.id);
+      handle = runRealTeam({
+        mission, adapter,
+        onEvent: (e) => this.#onAdapterEvent(mission, e),
+        onAgentChange: (agent) => {
+          mission.teamAgents[agent.role] = agent;
+          this.vault.save(mission);
+          this.emitVillage({
+            type: agent.status === 'running' && agent.turns === 0 ? 'agent.spawned' : 'agent.state', source: 'orchestrator-controlled', missionId: mission.id,
+            provider: adapter.runtime ?? runtimeOf({ id: adapterId }), role: agent.role,
+            agentId: `${mission.id}:${agent.role}`,
+            state: agent.status === 'running' ? (agent.role === 'LEAD' ? 'planning' : 'working') : agent.status,
+            label: `${agent.role} · sessão ${agent.sessionId ?? 'iniciando'}`,
+          });
+        },
+        onMessage: (message) => {
+          this.vault.appendTeamMessage(mission.id, message);
+          this.emitVillage({
+            type: 'agent.message', source: 'orchestrator-controlled', missionId: mission.id,
+            from: message.from, to: message.to, kind: message.kind, phase: message.phase,
+          });
+        },
+        onTurnResult: (role, result) => {
+          if (result.usage && result.sessionId) this.ledger.record({
+            provider: adapterId, sessionId: result.sessionId, missionId: mission.id,
+            usage: result.usage, source: `${adapterId}-team-${role}`,
+          });
+        },
+      });
+    } else {
+      handle = adapter.run({
+        prompt: `${mission.capsule}\n\nPedido do operador:\n${mission.prompt}`, cwd: mission.cwd, mode: mission.mode, name: `village-${mission.id}`,
+        onEvent: (e) => this.#onAdapterEvent(mission, e),
+      });
+    }
+    this.running.set(mission.id, { handle, adapter: adapterId, team: mission.team, slots: mission.team ? 2 : 1, startedAt: this.now() });
     handle.done.then((result) => this.#finish(mission, adapterId, result)).catch((error) => this.#finish(mission, adapterId, { ok: false, error: String(error.message) }));
   }
 
@@ -308,7 +346,7 @@ export class Orchestrator extends EventEmitter {
     if (result.usage && mission.result.sessionId) this.ledger.record({ provider: adapterId, sessionId: mission.result.sessionId, missionId: mission.id, usage: result.usage, source: `${adapterId}-run` });
     mission.observed.denials = Math.max(mission.observed.denials, result.denials ?? 0);
     mission.finishedAt = new Date(this.now()).toISOString();
-    mission.gate = evaluateGate(mission, { ...mission.observed, ok: result.ok, error: result.error, hasOutput: fullText !== null });
+    mission.gate = evaluateGate(mission, { ...mission.observed, ok: result.ok, error: result.error, hasOutput: fullText !== null, reviewVerified: result.reviewPerformed === true });
     mission.status = result.ok ? 'completed' : 'failed';
     this.vault.save(mission);
     this.vault.writeArtifact(mission.id, 'release.md', [`# Release Gate — ${mission.id}`, '', `**Status:** ${mission.gate.status}`, '',
@@ -317,7 +355,7 @@ export class Orchestrator extends EventEmitter {
     this.emitVillage({ type: mission.gate.status === 'READY' ? 'gate.pass' : 'gate.fail', source: 'orchestrator-controlled', missionId: mission.id, status: mission.gate.status });
     this.emitVillage({ type: 'mission.completed', source: 'orchestrator-controlled', missionId: mission.id, ok: result.ok, gate: mission.gate.status });
     // Safe fallback only for quota exhaustion, only to another verified subscription runtime, and only once.
-    if (!result.ok && result.quotaExhausted && !mission.fallbackUsed) {
+    if (!mission.team && !result.ok && result.quotaExhausted && !mission.fallbackUsed) {
       const now = this.now();
       const d = fallbackAfterFailure({ mission, failed: adapterId, settled: true, probes: this.probes, running: [...this.running.keys()].map((id) => ({ id })),
         quotas: this.#quotaViews(now) });
@@ -343,7 +381,7 @@ export class Orchestrator extends EventEmitter {
   publicMission(m) {
     if (!m) return null;
     return {
-      id: m.id, goal: m.goal, status: m.status, level: m.level, levelLabel: m.levelLabel, pipeline: m.pipeline, classification: m.classification,
+      id: m.id, goal: m.goal, status: m.status, team: Boolean(m.team), teamAgents: m.teamAgents ?? null, level: m.level, levelLabel: m.levelLabel, pipeline: m.pipeline, classification: m.classification,
       runtime: m.runtime, mode: m.mode, cwd: m.cwd, target: m.target, adapter: m.adapter ?? null, preflight: m.preflight, blockers: m.blockers, notes: m.notes ?? [],
       createdAt: m.createdAt, startedAt: m.startedAt ?? null, finishedAt: m.finishedAt ?? null, gate: m.gate ?? null,
       result: m.result ? { ok: m.result.ok, error: m.result.error, summary: m.result.summary?.slice(0, RESULT_PREVIEW_MAX) ?? null, hasOutput: m.result.hasOutput ?? Boolean(m.result.summary) } : null,
@@ -358,6 +396,14 @@ export class Orchestrator extends EventEmitter {
     const content = this.vault.readArtifact(id, 'result.md') ?? mission.result?.summary ?? null;
     if (content === null) throw Object.assign(new Error('Esta missão não possui resposta final armazenada. Missões antigas do Codex precisam ser executadas novamente.'), { status: 404 });
     return content;
+  }
+
+  missionTeam(id) {
+    const mission = this.missions.get(id) ?? this.vault.load(id);
+    if (!mission) throw Object.assign(new Error('Missão não encontrada.'), { status: 404 });
+    if (!mission.team) throw Object.assign(new Error('Esta missão não utilizou sessões de equipe.'), { status: 404 });
+    return { missionId: mission.id, status: mission.status, agents: mission.teamAgents ?? {},
+      messages: this.vault.teamMessages(id) };
   }
 
   publicProbes() {

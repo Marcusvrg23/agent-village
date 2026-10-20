@@ -42,6 +42,7 @@
         <h2 id="panel-title"></h2>
         <dl id="panel-body"></dl>
         <p class="note" id="panel-note"></p>
+        <div id="panel-actions" class="actions"></div>
       </aside>
 
       <section class="panel fountain" id="fountain" hidden aria-live="polite" aria-labelledby="fountain-title">
@@ -95,6 +96,8 @@
               <label class="check"><input type="radio" name="m-mode" value="edit"> Pode editar</label>
             </fieldset>
           </div>
+          <label class="check team-opt"><input type="checkbox" id="m-team"> Equipe real: 2 sessões independentes (Líder + Executor, maior consumo da cota da assinatura)</label>
+          <p class="small">A equipe inicia duas sessões em leitura, entrega a implementação ao Executor e envia o resultado ao Líder para revisão. Cada agente mantém seu próprio histórico e mensagens reais.</p>
           <details><summary>Engenharia reversa (opcional)</summary>
             <label>Alvo binário<input id="m-target" placeholder="caminho do executável/pacote" autocomplete="off"></label>
             <label class="check"><input type="checkbox" id="m-authorized"> Sou dono do alvo ou tenho permissão para analisá-lo</label>
@@ -106,6 +109,14 @@
         <ul class="list" id="adapters"></ul>
         <h3>Missões recentes</h3>
         <ul class="list" id="mission-list"></ul>
+      </section>
+
+      <section class="drawer team-drawer" id="team-log" hidden aria-labelledby="team-title">
+        <button type="button" class="close" id="team-close" aria-label="Fechar conversa da equipe">×</button>
+        <p class="kicker">Sessões reais • Context Vault</p>
+        <h2 id="team-title">Conversa dos agentes</h2>
+        <p class="small">Somente mensagens de turnos realmente enviados aos CLIs e respostas realmente recebidas. Nada da vida social local aparece aqui.</p>
+        <div id="team-body"></div>
       </section>
 
       <footer class="hud bottom-left">

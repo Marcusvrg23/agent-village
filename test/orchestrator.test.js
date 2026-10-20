@@ -358,6 +358,93 @@ test('E2E: full answers from Claude and Codex are durable, gate-checked and avai
   }
 });
 
+test('Real agent team: separate verified sessions, persisted handoffs, resume and independent review', async () => {
+  for (const runtime of ['codex', 'claude-code']) {
+    const s = sandbox();
+    const dir = path.join(s.home, '.av');
+    const o = new Orchestrator({ env: s.env, dataDir: dir, control: true });
+    const events = [];
+    o.on('village', e => events.push(e));
+    const m = await o.draft({ prompt: 'Implemente uma nova tela de relatórios e rode os testes', cwd: s.proj, runtime, team: true });
+    assert.equal(m.team, true);
+    assert.equal(m.preflight.canRun, true);
+    await o.approve(m.id);
+    const done = await waitFor(() => {
+      const x = o.missions.get(m.id);
+      return x?.status === 'completed' && !o.running.has(m.id) ? x : null;
+    }, 25_000);
+    const calls = s.calls().filter(c => c.args.includes('-p') || c.args[0] === 'exec');
+    assert.equal(calls.length, 4, 'two real sessions and two continuation turns');
+    assert.notEqual(done.teamAgents.LEAD.sessionId, done.teamAgents.WORKER.sessionId, 'role sessions must differ');
+    assert.equal(done.teamAgents.LEAD.turns, 2);
+    assert.equal(done.teamAgents.WORKER.turns, 2);
+    if (runtime === 'codex') {
+      const resumed = calls.filter(c => c.args.includes('resume'));
+      assert.equal(resumed.length, 2, 'Codex uses exec resume for actual continuity');
+      assert.ok(resumed.some(c => c.args.includes(done.teamAgents.LEAD.sessionId)));
+      assert.ok(resumed.some(c => c.args.includes(done.teamAgents.WORKER.sessionId)));
+    } else {
+      const resumed = calls.filter(c => c.args.includes('--resume'));
+      assert.equal(resumed.length, 2, 'Claude uses --resume for actual continuity');
+    }
+    const conversation = o.missionTeam(m.id);
+    assert.equal(conversation.messages.filter(x => x.kind === 'reply').length, 4, 'only actual CLI answers');
+    assert.equal(conversation.messages.filter(x => x.kind === 'handoff').length, 2, 'one handoff each direction');
+    assert.ok(conversation.messages.find(x => x.from === 'LEAD' && x.to === 'WORKER' && x.phase === 'handoff-plan'));
+    assert.ok(conversation.messages.find(x => x.from === 'WORKER' && x.to === 'LEAD' && x.phase === 'handoff-execute'));
+    assert.equal(done.gate.checks.find(x => x.id === 'review').status, 'PASS');
+    assert.equal(done.gate.checks.find(x => x.id === 'delivery').status, 'PASS');
+    assert.equal(done.gate.status, 'READY');
+    assert.match(o.missionOutput(m.id), /Sessões verificadas/);
+    assert.ok(events.some(e => e.type === 'agent.message'));
+    assert.ok(events.some(e => e.type === 'agent.spawned' && e.role === 'WORKER'));
+    assert.ok(events.some(e => e.type === 'agent.spawned' && e.role === 'LEAD'));
+    assert.ok(events.filter(e => e.type === 'agent.message').every(e => !('text' in e)), 'messages never leaked through SSE');
+    const restored = new Orchestrator({ env: s.env, dataDir: dir, control: false });
+    assert.deepEqual(restored.missionTeam(m.id).messages, conversation.messages, 'messages survive a restart');
+  }
+});
+
+test('Real team: only WORKER can edit after explicit approval; LEAD and first turns remain read-only', async () => {
+  const s = sandbox();
+  const o = new Orchestrator({ env: s.env, dataDir: path.join(s.home, '.av'), control: true });
+  const mission = await o.draft({
+    prompt: 'Implemente uma nova tela de relatórios e rode os testes',
+    cwd: s.proj, runtime: 'codex', mode: 'edit', team: true,
+  });
+  await assert.rejects(o.approve(mission.id), /confirmação explícita/);
+  assert.equal(s.calls().filter(c => c.args[0] === 'exec').length, 0);
+  await o.approve(mission.id, { confirmEdit: true });
+  await waitFor(() => {
+    const m = o.missions.get(mission.id);
+    return m?.status === 'completed' && !o.running.has(mission.id) ? m : null;
+  }, 25_000);
+  const runs = s.calls().filter(c => c.args[0] === 'exec');
+  assert.equal(runs.length, 4);
+  const editors = runs.filter(c => c.args.includes('workspace-write'));
+  assert.equal(editors.length, 1, 'no concurrent writes and one approved editor');
+  assert.match(editors[0].stdin, /Papel da sua sessão: WORKER/);
+  assert.match(editors[0].stdin, /Mensagem REAL recebida de LEAD/);
+  assert.ok(runs.filter(c => c.args.includes('read-only')).length === 3);
+  assert.ok(runs.every(c => /Não execute commit, push, merge, deploy/.test(c.stdin)));
+  assert.ok(runs.some(c => /Mensagem REAL recebida de WORKER/.test(c.stdin)), 'LEAD receives the real deliverable');
+});
+
+test('Real team: failures block gate and never fabricate a review or final answer', async () => {
+  const s = sandbox({ FAKE_RUN: 'fail' });
+  const o = new Orchestrator({ env: s.env, dataDir: path.join(s.home, '.av'), control: true });
+  const m = await o.draft({ prompt: 'Corrija bug no login', cwd: s.proj, runtime: 'codex', team: true });
+  await o.approve(m.id);
+  const result = await waitFor(() => {
+    const x = o.missions.get(m.id);
+    return x?.status === 'failed' && !o.running.has(m.id) ? x : null;
+  }, 25_000);
+  assert.equal(result.gate.status, 'BLOCKED');
+  assert.equal(result.gate.checks.find(x => x.id === 'delivery').status, 'UNVERIFIED');
+  assert.equal(o.missionTeam(m.id).messages.filter(x => x.kind === 'reply').length, 0);
+  assert.rejects(Promise.resolve().then(() => o.missionOutput(m.id)), /sem resposta final|não possui resposta/);
+});
+
 test('E2E: API-billed logins are never executed; quota exhaustion falls back once to the other subscription', async () => {
   const api = sandbox({ FAKE_CLAUDE_AUTH: 'api_key', FAKE_CODEX_LOGIN: 'apikey' });
   const o = new Orchestrator({ env: api.env, dataDir: path.join(api.home, '.av'), control: true });

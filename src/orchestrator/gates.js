@@ -13,7 +13,8 @@ export function evaluateGate(mission, observed) {
   if (mission.mode === 'read') add('scope', 'Somente leitura', 'PASS', mission.adapter === 'codex' ? 'Sandbox read-only.' : 'Permission mode plan.');
   const testsSeen = observed.states?.includes('testing');
   if (mission.level !== 'S0') add('tests', 'Testes observados', testsSeen ? 'PASS' : 'UNVERIFIED', testsSeen ? 'Comando de teste executado durante a missão.' : 'Nenhum comando de teste observado.');
-  if (level.review) add('review', 'Revisão independente', 'UNVERIFIED', 'Revisão separada não executada nesta missão (Budget Governor: só sob aprovação).');
+  if (level.review) add('review', 'Revisão independente', observed.reviewVerified ? 'PASS' : 'UNVERIFIED',
+    observed.reviewVerified ? 'Sessão LEAD independente revisou a entrega da sessão WORKER.' : 'Revisão separada não executada nesta missão (Budget Governor: só sob aprovação).');
   if (mission.level === 'S3') add('rea', 'Evidência REA', observed.reaUsed ? 'PASS' : 'UNVERIFIED', observed.reaUsed ? 'Ferramentas REA observadas.' : 'Nenhuma chamada REA observada.');
   add('truth', 'Vila reflete a realidade', 'PASS', 'Avatares só ficaram ACTIVE com eventos reais do runtime.');
   const failed = checks.some((c) => c.status === 'FAIL');

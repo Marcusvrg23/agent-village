@@ -206,10 +206,20 @@ async function boot() {
           ...row('Tarefa', a.task.label),
         ] : row('Agente real', 'nenhum')),
       );
+      const panelActions = $('panel-actions');
+      panelActions.replaceChildren();
+      if (a.task?.missionId && lastState?.missions?.some((m) => m.id === a.task.missionId && m.team) && !client.lan) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = `Abrir sessão e conversa de ${ROLE_LABELS[a.role]}`;
+        button.addEventListener('click', () => control?.openTeam?.(a.task.missionId, a.role));
+        panelActions.append(button);
+      }
       $('panel-note').textContent = a.task
         ? 'Estado derivado de evento real (rollout do Codex, transcrição do Claude Code ou missão aprovada). Nenhum conteúdo de prompt é exibido.'
         : 'Vida ociosa simulada localmente. Não representa trabalho real; o avatar fica ACTIVE só quando um agente real ocupa este papel.';
     } else if (ui.selectedCamp) {
+      $('panel-actions').replaceChildren();
       const c = camps.list().find((x) => x.name === ui.selectedCamp);
       if (!c) { select({}); return; }
       $('panel-kicker').textContent = 'Acampamento do projeto';
@@ -221,6 +231,7 @@ async function boot() {
       );
       $('panel-note').textContent = 'Uma barraca por projeto com sessão real (pasta da sessão). Some sozinha alguns minutos depois que a última sessão termina.';
     } else if (ui.selectedBuilding) {
+      $('panel-actions').replaceChildren();
       const b = world.buildings[ui.selectedBuilding];
       $('panel-kicker').textContent = 'Prédio';
       $('panel-title').textContent = b.label;

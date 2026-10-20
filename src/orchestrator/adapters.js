@@ -288,10 +288,12 @@ export class CodexAdapter {
   }
 
   /** mode 'read' = read-only sandbox; 'edit' = workspace-write sandbox. Prompt via stdin (`codex exec -`). */
-  run({ prompt, cwd, mode = 'read', onEvent = () => {} }) {
+  run({ prompt, cwd, mode = 'read', resumeSession = null, onEvent = () => {} }) {
     const bin = resolveCommand(this.command, { env: this.baseEnv });
     if (!bin) throw new Error('CLI `codex` não encontrada.');
-    const args = ['exec', '--json', '--skip-git-repo-check', '--sandbox', mode === 'edit' ? 'workspace-write' : 'read-only', '-'];
+    if (resumeSession && !/^[\w-]+$/.test(resumeSession)) throw new Error('Identificador de sessão Codex inválido.');
+    const args = ['exec', '--json', '--skip-git-repo-check', '--sandbox', mode === 'edit' ? 'workspace-write' : 'read-only',
+      ...(resumeSession ? ['resume', resumeSession] : []), '-'];
     const result = { ok: false, sessionId: null, usage: null, error: null, turns: 0, resultText: null };
     const handle = startStream(bin, args, {
       cwd, env: this.env, input: prompt,

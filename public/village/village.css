@@ -176,6 +176,20 @@ button.primary { background: rgba(255, 226, 140, 0.25) !important; border-color:
 .mission-output { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 480px; overflow: auto; padding: 10px; border-radius: 8px; background: rgba(0, 0, 0, 0.35); font: 12px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace; user-select: text; }
 .mission-result-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .mission-result-actions a, .mission-result-actions button { font: inherit; font-size: 12px; color: #b5d9ff; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+.team-opt { padding: 10px; border: 1px solid rgba(143, 200, 255, 0.26); border-radius: 8px; background: rgba(52, 92, 147, 0.12); }
+.team-drawer { width: min(680px, calc(100vw - 24px)); z-index: 6; }
+.team-agents { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 14px 0; }
+.team-agent { border: 1px solid rgba(143, 200, 255, 0.25); border-radius: 10px; padding: 10px; background: rgba(0, 0, 0, 0.2); }
+.team-agent p { overflow-wrap: anywhere; margin: 4px 0; }
+.team-tabs { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 0; }
+.team-tabs button[aria-pressed="true"] { background: rgba(143, 200, 255, 0.22); border-color: #8fc8ff; }
+.team-messages { padding-left: 0; margin: 8px 0; list-style: none; display: grid; gap: 10px; }
+.team-message { border-left: 3px solid #8fc8ff; background: rgba(0, 0, 0, 0.26); border-radius: 7px; padding: 10px; }
+.team-message-meta { color: #b5d9ff; font-weight: 700; font-size: 12px; overflow-wrap: anywhere; }
+.team-message pre { color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; max-height: 340px; overflow: auto; }
+#panel-actions button { font: inherit; font-size: 12px; cursor: pointer; border: 1px solid #8fc8ff; color: #b5d9ff; border-radius: 8px; background: rgba(45,85,135,0.18); padding: 8px; }
+@media (max-width: 580px) { .team-agents { grid-template-columns: 1fr; } }
+
 
 .attention-stack {
   position: absolute; z-index: 5; right: 12px; bottom: 12px; width: min(380px, calc(100vw - 24px));

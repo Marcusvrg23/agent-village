@@ -18,8 +18,6 @@ export function runRealTeam({ mission, adapter, onEvent = () => {}, onMessage = 
   };
   const invoke = async (role, phase, prompt, mode) => {
     if (cancelled) throw new Error('Equipe cancelada.');
-    send('OPERADOR', role, 'instruction', prompt, phase);
-    notify(role, 'running');
     const previous = agents[role].sessionId;
     let handle;
     try {
@@ -44,6 +42,8 @@ export function runRealTeam({ mission, adapter, onEvent = () => {}, onMessage = 
       throw error;
     }
     active.set(role, handle);
+    send('OPERADOR', role, 'instruction', prompt, phase);
+    notify(role, 'running');
     let result;
     try {
       result = await handle.done;

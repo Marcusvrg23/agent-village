@@ -84,10 +84,11 @@ export class ClaudeCodeAdapter {
    * shell beyond the read-only set). Unanswerable prompts are denied (--permission-prompts none). Never --bare
    * (bare mode ignores the subscription login and needs an API key).
    */
-  run({ prompt, cwd, mode = 'read', resumeSession = null, name = null, onEvent = () => {} }) {
+  run({ prompt, cwd, mode = 'read', resumeSession = null, name = null, model = null, onEvent = () => {} }) {
     const bin = resolveCommand(this.command, { env: this.baseEnv });
     if (!bin) throw new Error('CLI `claude` não encontrada.');
     const args = ['-p', '--output-format', 'stream-json', '--verbose', '--permission-mode', mode === 'edit' ? 'acceptEdits' : 'plan', '--permission-prompts', 'none'];
+    if (model) args.push('--model', model);
     if (resumeSession && /^[\w-]+$/.test(resumeSession)) args.push('--resume', resumeSession);
     if (name && /^[\w.-]+$/.test(name)) args.push('--name', name);
     const result = { ok: false, sessionId: resumeSession, usage: null, perMsg: new Map(), denials: 0, error: null, model: null, isError: false, resultText: null };
@@ -288,19 +289,20 @@ export class CodexAdapter {
   }
 
   /** mode 'read' = read-only sandbox; 'edit' = workspace-write sandbox. Prompt via stdin (`codex exec -`). */
-  run({ prompt, cwd, mode = 'read', resumeSession = null, onEvent = () => {} }) {
+  run({ prompt, cwd, mode = 'read', resumeSession = null, model = null, onEvent = () => {} }) {
     const bin = resolveCommand(this.command, { env: this.baseEnv });
     if (!bin) throw new Error('CLI `codex` não encontrada.');
     if (resumeSession && !/^[\w-]+$/.test(resumeSession)) throw new Error('Identificador de sessão Codex inválido.');
     const args = ['exec', '--json', '--skip-git-repo-check', '--sandbox', mode === 'edit' ? 'workspace-write' : 'read-only',
-      ...(resumeSession ? ['resume', resumeSession] : []), '-'];
-    const result = { ok: false, sessionId: null, usage: null, error: null, turns: 0, resultText: null };
+      ...(model ? ['--model', model] : []), ...(resumeSession ? ['resume', resumeSession] : []), '-'];
+    const result = { ok: false, sessionId: null, usage: null, error: null, turns: 0, resultText: null, model: null };
     const handle = startStream(bin, args, {
       cwd, env: this.env, input: prompt,
       onEvent: (e) => {
         if (e.type === 'thread.started') {
           result.sessionId = e.thread_id ?? null;
-          onEvent({ type: 'session', provider: this.runtime, account: this.account?.id ?? null, sessionId: result.sessionId });
+          result.model = typeof e.model === 'string' ? e.model : null;
+          onEvent({ type: 'session', provider: this.runtime, account: this.account?.id ?? null, sessionId: result.sessionId, model: result.model });
         } else if (e.type === 'item.started' || e.type === 'item.completed') {
           // Codex emits its final answer as a completed agent_message item, not in turn.completed.
           if (e.type === 'item.completed' && e.item?.type === 'agent_message' && typeof e.item.text === 'string' && e.item.text.trim()) {

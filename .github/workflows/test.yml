@@ -42,3 +42,41 @@ jobs:
           curl -fsS http://127.0.0.1:4173/api/village/state | grep -q '"control":false'
       - if: always()
         run: docker compose logs
+
+  source-reference:
+    name: Habblaud v1.0.3 MIT — archive public source
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact upstream Habblaud commit
+        uses: actions/checkout@v4
+        with:
+          repository: marmottajr/habblaud
+          ref: faa1a012b5fbf632c66dc6801c5383e53a542406
+          path: habblaud
+          persist-credentials: false
+          lfs: true
+      - name: Verify MIT notice and source content
+        shell: bash
+        run: |
+          test -f habblaud/LICENSE
+          grep -Fq 'Copyright (c) 2026 Márcio Junior' habblaud/LICENSE
+          test -f habblaud/package.json
+          test -d habblaud/client
+          test -d habblaud/server
+          echo "UPSTREAM_SHA=$(git -C habblaud rev-parse HEAD)"
+          echo "TRACKED_FILES=$(git -C habblaud ls-files | wc -l)"
+          du -sh habblaud
+      - name: Package complete public source (without Git history)
+        run: |
+          rm -rf habblaud/.git
+          zip -qr habblaud-v1.0.3-MIT-source.zip habblaud
+          sha256sum habblaud-v1.0.3-MIT-source.zip
+          unzip -tqq habblaud-v1.0.3-MIT-source.zip
+      - name: Upload repository ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: habblaud-v1.0.3-MIT-source
+          path: habblaud-v1.0.3-MIT-source.zip
+          if-no-files-found: error

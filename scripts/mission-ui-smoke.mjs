@@ -120,9 +120,24 @@ try {
   const screenshotWorld = path.join(artifacts, 'agent-village-panorama.png');
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.locator('#open-missions').click();
-  await page.locator('#mission-list .mission').first().locator('summary').click();
-  await page.waitForFunction(() => document.querySelector('#mission-list .mission-output')?.textContent?.includes('FIM DO RELATÓRIO'), { timeout: 15000 });
+  await page.locator('#mission-list .mission').first().getByRole('button', { name: /Abrir resposta completa/ }).click();
+  await page.locator('#result-viewer').waitFor({ state: 'visible' });
+  await page.locator('#result-content').waitFor();
+  await page.waitForFunction(() => document.querySelector('#result-content')?.textContent?.includes('FIM DO RELATÓRIO'), { timeout: 15000 });
+  await page.locator('#result-find').click();
+  await page.locator('#result-query').fill('FIM DO RELATÓRIO');
+  await page.waitForFunction(() => document.querySelector('#result-count')?.textContent?.includes('1 / 1'));
+  assert.equal(await page.locator('#result-content mark').count(), 1);
+  await page.locator('#result-query').fill('');
+  await page.locator('#result-bottom').click();
+  assert.ok(await page.locator('#result-scroll').evaluate(e => e.scrollTop > 0));
+  await page.locator('#result-scroll').evaluate(e => e.scrollTop = 100);
+  const before = await page.locator('#result-scroll').evaluate(e => e.scrollTop);
+  await page.waitForTimeout(5500);
+  const after = await page.locator('#result-scroll').evaluate(e => e.scrollTop);
+  assert.equal(after, before, 'periodic SSE must not reset reading position');
   await page.screenshot({ path: screenshotDetail, fullPage: true });
+  await page.locator('#result-close').click();
   await page.locator('#missions-close').click();
   await page.screenshot({ path: screenshotWorld, fullPage: true });
   // Genuine two-session mission: complete both independent processes, perform two durable handoffs,

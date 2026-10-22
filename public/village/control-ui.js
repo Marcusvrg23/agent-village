@@ -536,7 +536,7 @@ export function mountControlUi({ client, onFountainState, onRefill, onAttention 
       m.usage ? el('p', { class: 'small' }, `Tokens: entrada ${fmtInt(m.usage.input)} · saída ${fmtInt(m.usage.output)}`) : null,
       m.result?.error ? el('p', { class: 'error' }, m.result.error) : null,
       m.team ? el('button', { type: 'button', onclick: () => openTeam(m.id) }, 'Conversas e sessões da equipe') : null,
-      missionOutputPanel(m),
+      m.result?.hasOutput ? el('button', { type: 'button', class: 'mission-open-result', onclick: () => openResult(m) }, 'Abrir resposta completa ↗') : null,
       m.status === 'running' && !client.lan ? el('button', { type: 'button', onclick: () => client.post(`/api/village/missions/${m.id}/cancel`).catch(() => {}) }, 'Cancelar') : null));
     list.replaceChildren(...(items.length ? items : [el('li', { class: 'small' }, 'Nenhuma missão ainda.')]));
     const ad = $('adapters');

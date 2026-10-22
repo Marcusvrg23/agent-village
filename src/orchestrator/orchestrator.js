@@ -9,6 +9,7 @@ import { ClaudeCodeAdapter, CodexAdapter } from './adapters.js';
 import { discoverAccounts } from './accounts.js';
 import { evaluateGate } from './gates.js';
 import { runRealTeam } from './real-team.js';
+import { normalizeTeamModels, normalizeModel } from './models.js';
 import { UsageLedger } from './ledger.js';
 import { QuotaStore } from './quota.js';
 import { probeRea, reaAuthorization } from './rea.js';
@@ -182,7 +183,7 @@ export class Orchestrator extends EventEmitter {
 
   // ------------------------------------------------------------------ missions
 
-  async draft({ prompt, cwd, runtime = 'auto', mode = 'read', target = null, authorized = false, team = false }) {
+  async draft({ prompt, cwd, runtime = 'auto', mode = 'read', target = null, authorized = false, team = false, teamModels = {} }) {
     const text = redact(String(prompt ?? '').trim()).slice(0, PROMPT_MAX);
     if (!text) throw Object.assign(new Error('Escreva o pedido da missão.'), { status: 400 });
     if (!['auto', ...POLICY.allowedRuntimeTypes, ...this.keys()].includes(runtime)) throw Object.assign(new Error('Runtime inválido.'), { status: 400 });
@@ -194,7 +195,7 @@ export class Orchestrator extends EventEmitter {
     const mission = {
       id: newMissionId(new Date(this.now())), goal: text.split('\n')[0].slice(0, 160), prompt: text, cwd: dir.ok ? dir.path : cwd ?? null,
       runtime, mode, target: target || null, authorized: Boolean(authorized), level: cls.level, levelLabel: cls.label, pipeline: cls.pipeline,
-      classification: cls.reasons, status: 'draft', team: team === true, createdAt: new Date(this.now()).toISOString(), blockers: [],
+      classification: cls.reasons, status: 'draft', team: team === true, teamModels: team === true ? normalizeTeamModels(teamModels) : null, createdAt: new Date(this.now()).toISOString(), blockers: [],
     };
     if (!dir.ok) mission.blockers.push(dir.reason);
     if (!auth.ok) mission.blockers.push(auth.reason);
@@ -272,9 +273,10 @@ export class Orchestrator extends EventEmitter {
       this.vault.clearTeamMessages(mission.id);
       handle = runRealTeam({
         mission, adapter,
+        getModel: role => mission.teamModels?.[role] ?? null,
         onEvent: (e) => this.#onAdapterEvent(mission, e),
         onAgentChange: (agent) => {
-          mission.teamAgents[agent.role] = agent;
+          mission.teamAgents[agent.role] = { ...agent, nextModel: (mission.teamModels?.[agent.role] ?? null) !== agent.requestedModel ? mission.teamModels?.[agent.role] ?? null : null };
           this.vault.save(mission);
           this.emitVillage({
             type: agent.status === 'running' && agent.turns === 0 ? 'agent.spawned' : 'agent.state', source: 'orchestrator-controlled', missionId: mission.id,
@@ -381,7 +383,7 @@ export class Orchestrator extends EventEmitter {
   publicMission(m) {
     if (!m) return null;
     return {
-      id: m.id, goal: m.goal, status: m.status, team: Boolean(m.team), teamAgents: m.teamAgents ?? null, level: m.level, levelLabel: m.levelLabel, pipeline: m.pipeline, classification: m.classification,
+      id: m.id, goal: m.goal, status: m.status, team: Boolean(m.team), teamModels: m.teamModels ?? null, teamAgents: m.teamAgents ?? null, level: m.level, levelLabel: m.levelLabel, pipeline: m.pipeline, classification: m.classification,
       runtime: m.runtime, mode: m.mode, cwd: m.cwd, target: m.target, adapter: m.adapter ?? null, preflight: m.preflight, blockers: m.blockers, notes: m.notes ?? [],
       createdAt: m.createdAt, startedAt: m.startedAt ?? null, finishedAt: m.finishedAt ?? null, gate: m.gate ?? null,
       result: m.result ? { ok: m.result.ok, error: m.result.error, summary: m.result.summary?.slice(0, RESULT_PREVIEW_MAX) ?? null, hasOutput: m.result.hasOutput ?? Boolean(m.result.summary) } : null,
@@ -398,11 +400,33 @@ export class Orchestrator extends EventEmitter {
     return content;
   }
 
+  updateTeamModel(id, role, model) {
+    const mission = this.missions.get(id);
+    if (!mission || !mission.team) throw Object.assign(new Error('Missão de equipe não encontrada.'), { status: 404 });
+    if (!['LEAD', 'WORKER'].includes(role)) throw Object.assign(new Error('Agente não configurável.'), { status: 400 });
+    if (!['draft', 'waiting_for_quota', 'queued', 'interrupted', 'running', 'failed'].includes(mission.status)) {
+      throw Object.assign(new Error('A missão terminou: configure os modelos numa nova execução.'), { status: 409 });
+    }
+    const agent = mission.teamAgents?.[role];
+    if (mission.status === 'running' && agent && (agent.turns >= 2 || (agent.turns === 1 && agent.status === 'running'))) {
+      throw Object.assign(new Error('Este agente já iniciou o último turno; não é possível trocar o modelo nesta missão.'), { status: 409 });
+    }
+    const chosen = normalizeModel(model);
+    mission.teamModels ??= { LEAD: null, WORKER: null };
+    mission.teamModels[role] = chosen;
+    if (agent) agent.nextModel = chosen !== agent.requestedModel ? chosen : null;
+    this.vault.save(mission);
+    this.vault.audit({ action: 'team.model', missionId: id, role, model: chosen, pending: mission.status === 'running' });
+    this.emitVillage({ type: 'team.model.changed', source: 'orchestrator-controlled', missionId: id, role, pending: mission.status === 'running' });
+    return { missionId: id, role, selectedModel: chosen, appliedModel: agent?.requestedModel ?? null,
+      nextTurn: mission.status === 'running' };
+  }
+
   missionTeam(id) {
     const mission = this.missions.get(id) ?? this.vault.load(id);
     if (!mission) throw Object.assign(new Error('Missão não encontrada.'), { status: 404 });
     if (!mission.team) throw Object.assign(new Error('Esta missão não utilizou sessões de equipe.'), { status: 404 });
-    return { missionId: mission.id, status: mission.status, agents: mission.teamAgents ?? {},
+    return { missionId: mission.id, status: mission.status, models: mission.teamModels ?? { LEAD: null, WORKER: null }, agents: mission.teamAgents ?? {},
       messages: this.vault.teamMessages(id) };
   }
 

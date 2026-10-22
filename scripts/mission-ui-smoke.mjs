@@ -153,7 +153,7 @@ try {
     };
     const m = await post('/api/village/missions', {
       prompt: 'Implemente uma nova tela de relatórios e rode os testes',
-      cwd: project, runtime: 'codex', mode: 'read', team: true,
+      cwd: project, runtime: 'codex', mode: 'read', team: true, teamModels: { LEAD: 'gpt-5.3-codex', WORKER: 'gpt-5.2-codex' },
     });
     await post('/api/village/missions/' + m.id + '/approve', {});
     return m;
@@ -170,6 +170,8 @@ try {
   assert.notEqual(teamState.teamAgents?.LEAD?.sessionId, teamState.teamAgents?.WORKER?.sessionId);
   assert.equal(teamState.teamAgents?.LEAD?.turns, 2);
   assert.equal(teamState.teamAgents?.WORKER?.turns, 2);
+  assert.equal(teamState.teamAgents?.LEAD?.requestedModel, 'gpt-5.3-codex');
+  assert.equal(teamState.teamAgents?.WORKER?.requestedModel, 'gpt-5.2-codex');
   assert.equal(teamState.gate.checks.find(x => x.id === 'review').status, 'PASS');
   const teamPayload = await (await fetch(base + '/api/village/missions/' + teamMission.id + '/team')).json();
   assert.equal(teamPayload.messages.filter(m => m.kind === 'reply').length, 4);
@@ -183,6 +185,9 @@ try {
   await page.getByRole('button', { name: 'LEAD', exact: true }).last().click();
   await page.locator('#team-body .team-message').first().waitFor();
   assert.equal(await page.locator('#team-body .team-agent').count(), 2);
+  assert.ok((await page.locator('#team-body .team-agent').first().innerText()).includes('gpt-5.3-codex'));
+  assert.ok((await page.locator('#team-body .team-agent').last().innerText()).includes('gpt-5.2-codex'));
+  assert.ok((await page.locator('#team-body .team-agent').first().innerText()).includes('não confirmado'));
   await page.locator('#team-close').click();
   assert.equal(errors.length, 0, 'sem erros JS: ' + errors.join('; '));
   const report = { ok: true, branch: 'feat/real-agent-team-v1', teamMissionId: teamMission.id, teamSessions: teamState.teamAgents, teamMessages: teamPayload.messages.length, teamScreenshot: path.basename(screenshotTeam), missionId: mission.id,

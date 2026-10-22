@@ -198,6 +198,7 @@ export function createControlPlane(orchestrator, { token = randomBytes(24).toStr
       if (url.pathname === '/api/village/quota/refresh') return send(res, 200, await orchestrator.refreshQuota()), true;
       if (url.pathname === '/api/village/probe') { await orchestrator.probeAll(true); return send(res, 200, { adapters: orchestrator.publicProbes(), rea: orchestrator.rea }), true; }
       if (url.pathname === '/api/village/missions') return send(res, 201, await orchestrator.draft(body)), true;
+      if ((m = /^\/api\/village\/missions\/(M-[0-9]{8}-[0-9]{6}-[a-z0-9]{4})\/team\/models\/(LEAD|WORKER)$/.exec(url.pathname))) return send(res, 200, orchestrator.updateTeamModel(m[1], m[2], body.model)), true;
       if ((m = /^\/api\/village\/missions\/(M-[\w-]+)\/approve$/.exec(url.pathname))) return send(res, 200, await orchestrator.approve(m[1], { confirmEdit: body.confirmEdit === true })), true;
       if ((m = /^\/api\/village\/missions\/(M-[\w-]+)\/cancel$/.exec(url.pathname))) return send(res, 200, orchestrator.cancel(m[1])), true;
       if ((m = /^\/api\/village\/attention\/([AN]-[0-9a-f]+)$/.exec(url.pathname)) && desk) return send(res, 200, desk.decide(m[1], { behavior: body.behavior, message: body.message })), true;

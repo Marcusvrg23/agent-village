@@ -111,6 +111,28 @@
         <ul class="list" id="mission-list"></ul>
       </section>
 
+      <section class="result-viewer" id="result-viewer" hidden role="dialog" aria-modal="true" aria-labelledby="result-title">
+        <header class="result-viewer-header">
+          <div><p class="kicker">Agent Village · Histórico da missão</p><h2 id="result-title">Resposta final</h2><p class="small" id="result-subtitle"></p></div>
+          <div class="result-actions">
+            <button type="button" id="result-find" title="Buscar (Ctrl+F)">Buscar</button>
+            <button type="button" id="result-copy">Copiar</button>
+            <a id="result-download" download>Baixar .md</a>
+            <button type="button" id="result-close" aria-label="Fechar resultado">Fechar ✕</button>
+          </div>
+        </header>
+        <div class="result-search" id="result-search" hidden>
+          <input type="search" id="result-query" placeholder="Localizar na resposta" aria-label="Buscar na resposta">
+          <span id="result-count" aria-live="polite"></span>
+          <button type="button" id="result-prev" aria-label="Resultado anterior">↑</button>
+          <button type="button" id="result-next" aria-label="Próximo resultado">↓</button>
+        </div>
+        <div class="result-scroll" id="result-scroll" tabindex="0">
+          <pre id="result-content" class="result-content">Carregando…</pre>
+        </div>
+        <footer class="result-footer"><span id="result-status">Resposta registrada no Context Vault</span><button type="button" id="result-bottom">Ir ao final ↓</button></footer>
+      </section>
+
       <section class="drawer team-drawer" id="team-log" hidden aria-labelledby="team-title">
         <button type="button" class="close" id="team-close" aria-label="Fechar conversa da equipe">×</button>
         <p class="kicker">Sessões reais • Context Vault</p>

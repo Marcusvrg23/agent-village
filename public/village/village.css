@@ -292,3 +292,11 @@ body.phone .desktop-only, body.phone #open-missions { display: none; }
   .result-scroll { padding: 14px; }
   .result-content { font-size: 12px; }
 }
+
+.team-model-config[hidden], #team-model-help[hidden] { display: none; }
+.team-model-config { border: 1px solid rgba(143, 200, 255, .22); border-radius: 9px; padding: 10px; }
+.team-model-config input { min-width: 0; }
+.team-model-label { margin-top: 8px; display: grid; gap: 5px; color: #d6e1f2; font-size: 12px; }
+.team-model-input { width: 100%; min-width: 0; color: var(--ink); background: #111d31; border: 1px solid #597697; border-radius: 7px; padding: 8px; }
+.team-model-feedback { min-height: 18px; overflow-wrap: anywhere; }
+.team-agent button { margin-top: 6px; }

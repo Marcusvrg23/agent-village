@@ -459,7 +459,7 @@ export function mountControlUi({ client, onFountainState, onRefill, onAttention 
     resultPreviousFocus?.focus?.();
   }
   $('result-close').addEventListener('click', closeResult);
-  $('result-find').addEventListener('click', () => setSearch(!$('result-search').hidden));
+  $('result-find').addEventListener('click', () => setSearch($('result-search').hidden));
   $('result-query').addEventListener('input', highlightResult);
   $('result-prev').addEventListener('click', () => jumpResult(resultPosition - 1));
   $('result-next').addEventListener('click', () => jumpResult(resultPosition + 1));

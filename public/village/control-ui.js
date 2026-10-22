@@ -366,6 +366,117 @@ export function mountControlUi({ client, onFountainState, onRefill, onAttention 
     if ([...sel.options].some((o) => o.value === cur)) sel.value = cur;
   }
 
+  // A dedicated viewer avoids nested mission/drawer scrolling and survives SSE state refreshes.
+  const resultViewer = $('result-viewer');
+  const resultScroll = $('result-scroll');
+  const resultContent = $('result-content');
+  let resultPreviousFocus = null;
+  let resultText = '';
+  let resultMatches = [];
+  let resultPosition = 0;
+  let resultRequest = 0;
+  const resultCache = new Map();
+  const setSearch = (visible) => {
+    $('result-search').hidden = !visible;
+    if (visible) $('result-query').focus();
+    else { $('result-query').value = ''; highlightResult(); }
+  };
+  function highlightResult() {
+    const query = $('result-query').value.trim();
+    resultMatches = [];
+    resultPosition = 0;
+    resultContent.replaceChildren();
+    if (!query) {
+      resultContent.textContent = resultText;
+      $('result-count').textContent = '';
+      return;
+    }
+    const textLower = resultText.toLocaleLowerCase('pt-BR');
+    const needle = query.toLocaleLowerCase('pt-BR');
+    const fragment = document.createDocumentFragment();
+    let cursor = 0, next;
+    while ((next = textLower.indexOf(needle, cursor)) >= 0 && resultMatches.length < 500) {
+      fragment.append(document.createTextNode(resultText.slice(cursor, next)));
+      const mark = document.createElement('mark');
+      mark.textContent = resultText.slice(next, next + query.length);
+      fragment.append(mark);
+      resultMatches.push(mark);
+      cursor = next + query.length;
+    }
+    fragment.append(document.createTextNode(resultText.slice(cursor)));
+    resultContent.append(fragment);
+    jumpResult(0);
+  }
+  function jumpResult(index) {
+    if (!resultMatches.length) { $('result-count').textContent = '0 resultados'; return; }
+    resultMatches[resultPosition]?.classList.remove('current');
+    resultPosition = (index + resultMatches.length) % resultMatches.length;
+    const mark = resultMatches[resultPosition];
+    mark.classList.add('current');
+    // Native scrollIntoView would also scroll the underlying mission drawer.
+    resultScroll.scrollTop += mark.getBoundingClientRect().top - resultScroll.getBoundingClientRect().top - resultScroll.clientHeight / 3;
+    $('result-count').textContent = `${resultPosition + 1} / ${resultMatches.length}`;
+  }
+  async function openResult(m) {
+    if (client.lan || !m?.result?.hasOutput) return;
+    resultPreviousFocus = document.activeElement;
+    const request = ++resultRequest;
+    resultViewer.hidden = false;
+    resultViewer.dataset.missionId = m.id;
+    $('result-title').textContent = m.goal;
+    $('result-subtitle').textContent = `${m.id} · ${m.adapter ?? 'runtime'} · Gate ${m.gate?.status ?? '—'}`;
+    $('result-download').href = `/api/village/missions/${encodeURIComponent(m.id)}/output?download=1`;
+    $('result-download').download = `mission-${m.id}.md`;
+    resultText = 'Carregando resposta completa…';
+    resultContent.textContent = resultText;
+    setSearch(false);
+    resultScroll.scrollTop = 0;
+    $('result-status').textContent = 'Abrindo resposta completa…';
+    $('result-close').focus();
+    try {
+      const url = `/api/village/missions/${encodeURIComponent(m.id)}/output`;
+      let text = resultCache.get(m.id);
+      if (text === undefined) {
+        const response = await fetch(url, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        text = await response.text();
+        resultCache.set(m.id, text);
+      }
+      if (request !== resultRequest) return;
+      resultText = text;
+      highlightResult();
+      $('result-status').textContent = `${new Intl.NumberFormat('pt-BR').format(text.length)} caracteres · somente leitura`;
+    } catch (error) {
+      if (request !== resultRequest) return;
+      resultText = `Não foi possível carregar: ${error.message}`;
+      highlightResult();
+      $('result-status').textContent = 'Falha ao abrir resposta';
+    }
+  }
+  function closeResult() {
+    ++resultRequest;
+    resultViewer.hidden = true;
+    resultPreviousFocus?.focus?.();
+  }
+  $('result-close').addEventListener('click', closeResult);
+  $('result-find').addEventListener('click', () => setSearch(!$('result-search').hidden));
+  $('result-query').addEventListener('input', highlightResult);
+  $('result-prev').addEventListener('click', () => jumpResult(resultPosition - 1));
+  $('result-next').addEventListener('click', () => jumpResult(resultPosition + 1));
+  $('result-bottom').addEventListener('click', () => { resultScroll.scrollTop = resultScroll.scrollHeight; });
+  $('result-copy').addEventListener('click', () => navigator.clipboard.writeText(resultText).catch(() => { $('result-status').textContent = 'Não foi possível copiar.'; }));
+  resultViewer.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); if (!$('result-search').hidden) setSearch(false); else closeResult(); }
+    if (e.key === 'Enter' && document.activeElement === $('result-query')) { e.preventDefault(); jumpResult(resultPosition + (e.shiftKey ? -1 : 1)); }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') { e.preventDefault(); setSearch(true); }
+    if (e.key === 'Tab') {
+      const focusable = [...resultViewer.querySelectorAll('button, a[href], input')].filter(n => !n.closest('[hidden]'));
+      if (!focusable.length) return;
+      if (e.shiftKey && document.activeElement === focusable[0]) { e.preventDefault(); focusable[focusable.length - 1].focus(); }
+      else if (!e.shiftKey && document.activeElement === focusable[focusable.length - 1]) { e.preventDefault(); focusable[0].focus(); }
+    }
+  });
+
   // Preserve expanded results across the 5-second live state refresh.
   const expandedOutputs = new Set();
   const cachedOutputs = new Map();

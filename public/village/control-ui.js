@@ -288,6 +288,13 @@ export function mountControlUi({ client, onFountainState, onRefill, onAttention 
   cwdInput.value = storage.get('village.cwd') ?? '';
   $('open-missions').addEventListener('click', () => { drawer.hidden = !drawer.hidden; if (!drawer.hidden) $('m-prompt').focus(); });
   $('missions-close').addEventListener('click', () => { drawer.hidden = true; });
+  const teamMode = $('m-team');
+  const showModels = () => {
+    $('team-model-config').hidden = !teamMode.checked;
+    $('team-model-help').hidden = !teamMode.checked;
+  };
+  teamMode.addEventListener('change', showModels);
+  showModels();
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -298,6 +305,7 @@ export function mountControlUi({ client, onFountainState, onRefill, onAttention 
       const m = await client.post('/api/village/missions', {
         prompt: $('m-prompt').value, cwd: cwdInput.value.trim(), runtime: $('m-runtime').value, mode: form.querySelector('input[name="m-mode"]:checked').value,
         target: $('m-target').value.trim() || null, authorized: $('m-authorized').checked, team: $('m-team').checked,
+        teamModels: { LEAD: $('m-model-lead').value.trim() || null, WORKER: $('m-model-worker').value.trim() || null },
       });
       renderPreflight(m);
     } catch (error) {
@@ -313,7 +321,7 @@ export function mountControlUi({ client, onFountainState, onRefill, onAttention 
       ['Pipeline', m.team ? 'Equipe real · LEAD + WORKER (2 sessões, 4 turnos com handoffs)' : m.pipeline.join(' → ')],
       ['Runtime escolhido', p.adapter ? `${accountName(client.state, p.adapter)} (${m.runtime === 'auto' ? 'automático' : 'escolha manual'})` : 'nenhum elegível'],
       ['Por quê', (p.why ?? []).join(' ')],
-      ['Modelo', p.model ?? '—'],
+      ['Modelo', m.team ? `LEAD: ${m.teamModels?.LEAD ?? 'padrão da CLI'} · WORKER: ${m.teamModels?.WORKER ?? 'padrão da CLI'}` : (p.model ?? '—')],
       ['Risco', p.risk],
       ['Gasto de API permitido', `US$ ${Number(p.paidApiSpendAllowedUsd ?? 0).toFixed(2)}`],
       ['Aprovação', p.approval],
@@ -580,10 +588,30 @@ export function mountControlUi({ client, onFountainState, onRefill, onAttention 
       } }, role === 'TODOS' ? 'Todos' : role)));
     const people = el('div', { class: 'team-agents' }, ...roles.map((role) => {
       const a = agents[role] ?? {};
+      const current = data.models?.[role] ?? '';
+      const editable = ['draft', 'queued', 'waiting_for_quota', 'interrupted', 'running', 'failed'].includes(data.status)
+        && !(data.status === 'running' && (a.turns >= 2 || (a.turns === 1 && a.status === 'running')));
+      const pick = el('input', { type: 'text', class: 'team-model-input', value: current, maxlength: '64',
+        list: 'team-model-hints', placeholder: 'Padrão da CLI', 'aria-label': `Modelo solicitado para ${role}`, autocomplete: 'off' });
+      pick.disabled = !editable;
+      const info = el('p', { class: 'small team-model-feedback' }, editable ? 'Trocar no próximo turno disponível' : 'Modelo bloqueado: não há turno disponível');
+      const change = el('button', { type: 'button', disabled: !editable, onclick: async () => {
+        change.disabled = true;
+        info.textContent = 'Salvando modelo solicitado…';
+        try {
+          const updated = await client.post(`/api/village/missions/${encodeURIComponent(data.missionId)}/team/models/${role}`,
+            { model: pick.value.trim() || null });
+          info.textContent = updated.nextTurn ? 'Modelo solicitado para o próximo turno (se houver).' : 'Modelo configurado para a execução.';
+        } catch (error) { info.textContent = error.message; }
+        finally { change.disabled = !editable; }
+      } }, 'Aplicar modelo');
       return el('div', { class: 'team-agent' },
         el('b', {}, role === 'LEAD' ? 'Líder · LEAD' : 'Executor · WORKER'),
         el('p', { class: 'small' }, `Sessão: ${a.sessionId || 'aguardando início'}`),
-        el('p', { class: 'small' }, `Estado: ${a.status ?? 'aguardando'} · ${a.turns ?? 0} turnos`));
+        el('p', { class: 'small' }, `Estado: ${a.status ?? 'aguardando'} · ${a.turns ?? 0} turnos`),
+        el('p', { class: 'small' }, `Solicitado neste turno: ${a.requestedModel ?? 'padrão da CLI'}`),
+        el('p', { class: 'small' }, `Informado pela CLI: ${a.reportedModel ?? 'não confirmado'}`),
+        el('label', { class: 'team-model-label' }, 'Modelo para o próximo turno', pick), change, info);
     }));
     const timeline = el('ol', { class: 'team-messages' }, ...messages.map((message) =>
       el('li', { class: 'team-message' },
@@ -599,7 +627,7 @@ export function mountControlUi({ client, onFountainState, onRefill, onAttention 
       const r = await fetch(`/api/village/missions/${encodeURIComponent(openTeamId)}/team`, { cache: 'no-store' });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = await r.json();
-      if (data.missionId === openTeamId) renderTeamDetail(data);
+      if (data.missionId === openTeamId && !document.activeElement?.classList?.contains('team-model-input')) renderTeamDetail(data);
     } catch (error) {
       $('team-body').replaceChildren(el('p', { class: 'error' }, `Não foi possível abrir a conversa: ${error.message}`));
     } finally { teamLoading = false; }

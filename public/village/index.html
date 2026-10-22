@@ -98,6 +98,19 @@
           </div>
           <label class="check team-opt"><input type="checkbox" id="m-team"> Equipe real: 2 sessões independentes (Líder + Executor, maior consumo da cota da assinatura)</label>
           <p class="small">A equipe inicia duas sessões em leitura, entrega a implementação ao Executor e envia o resultado ao Líder para revisão. Cada agente mantém seu próprio histórico e mensagens reais.</p>
+          <div class="grid2 team-model-config" id="team-model-config" hidden>
+            <label>Modelo do Líder (LEAD)
+              <input id="m-model-lead" list="team-model-hints" maxlength="64" placeholder="Padrão da CLI" autocomplete="off" spellcheck="false">
+            </label>
+            <label>Modelo do Executor (WORKER)
+              <input id="m-model-worker" list="team-model-hints" maxlength="64" placeholder="Padrão da CLI" autocomplete="off" spellcheck="false">
+            </label>
+            <datalist id="team-model-hints">
+              <option value="sonnet"></option><option value="opus"></option><option value="haiku"></option>
+              <option value="gpt-5.3-codex"></option><option value="gpt-5.2-codex"></option>
+            </datalist>
+          </div>
+          <p class="small" id="team-model-help" hidden>Informe o ID do modelo disponível na conta da CLI; em branco usa o padrão. A disponibilidade será confirmada pelo provedor na execução, sem mudar o firewall US$ 0.</p>
           <details><summary>Engenharia reversa (opcional)</summary>
             <label>Alvo binário<input id="m-target" placeholder="caminho do executável/pacote" autocomplete="off"></label>
             <label class="check"><input type="checkbox" id="m-authorized"> Sou dono do alvo ou tenho permissão para analisá-lo</label>

@@ -4,7 +4,7 @@
 export const TEAM_ROLES = Object.freeze(['LEAD', 'WORKER']);
 
 export function runRealTeam({ mission, adapter, onEvent = () => {}, onMessage = () => {},
-  onAgentChange = () => {}, onTurnResult = () => {} }) {
+  onAgentChange = () => {}, onTurnResult = () => {}, getModel = () => null }) {
   const active = new Map();
   const guardrails = [
     'Regras obrigatórias da missão (valem para ambas as sessões):',
@@ -13,7 +13,7 @@ export function runRealTeam({ mission, adapter, onEvent = () => {}, onMessage = 
     'Não execute commit, push, merge, deploy nem instale dependências; não faça mudanças irreversíveis.',
     'Não exponha segredos nem inicie subagentes adicionais.',
   ].join('\n');
-  const agents = Object.fromEntries(TEAM_ROLES.map((role) => [role, { role, sessionId: null, turns: 0, status: 'queued' }]));
+  const agents = Object.fromEntries(TEAM_ROLES.map((role) => [role, { role, sessionId: null, turns: 0, status: 'queued', requestedModel: null, reportedModel: null, nextModel: null }]));
   let cancelled = false;
   const send = (from, to, kind, text, phase) => {
     if (typeof text !== 'string' || !text.trim()) return;
@@ -26,14 +26,19 @@ export function runRealTeam({ mission, adapter, onEvent = () => {}, onMessage = 
   const invoke = async (role, phase, prompt, mode) => {
     if (cancelled) throw new Error('Equipe cancelada.');
     const previous = agents[role].sessionId;
+    const model = getModel(role);
+    agents[role].requestedModel = model;
+    agents[role].reportedModel = null;
+    agents[role].nextModel = null;
     let handle;
     try {
       handle = adapter.run({
-        prompt, cwd: mission.cwd, mode,
+        prompt, cwd: mission.cwd, mode, model,
         ...(previous ? { resumeSession: previous } : {}),
         name: `village-${mission.id}-${role.toLowerCase()}`,
         onEvent(e) {
           if (e.type === 'session' && e.sessionId) {
+            if (typeof e.model === 'string' && e.model.trim()) agents[role].reportedModel = e.model;
             if (previous && e.sessionId !== previous) {
               // Do not misrepresent a newly created session as an actual resumed conversation.
               agents[role].resumeMismatch = true;
@@ -60,6 +65,7 @@ export function runRealTeam({ mission, adapter, onEvent = () => {}, onMessage = 
     if (cancelled) throw new Error('Equipe cancelada.');
     agents[role].turns++;
     if (result.sessionId) agents[role].sessionId = result.sessionId;
+    if (typeof result.model === 'string' && result.model.trim()) agents[role].reportedModel = result.model;
     onTurnResult(role, result);
     const answer = typeof result.resultText === 'string' && result.resultText.trim() ? result.resultText : null;
     if (answer) send(role, 'EQUIPE', 'reply', answer, phase);

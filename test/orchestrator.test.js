@@ -430,6 +430,71 @@ test('Real team: only WORKER can edit after explicit approval; LEAD and first tu
   assert.ok(runs.some(c => /Mensagem REAL recebida de WORKER/.test(c.stdin)), 'LEAD receives the real deliverable');
 });
 
+test('Real team: independent model selection reaches CLI for each role, and records honest model provenance', async () => {
+  for (const runtime of ['claude-code', 'codex']) {
+    const s = sandbox();
+    const o = new Orchestrator({ env: s.env, dataDir: path.join(s.home, '.av'), control: true });
+    const models = runtime === 'claude-code' ? { LEAD: 'opus', WORKER: 'sonnet' } : { LEAD: 'gpt-5.3-codex', WORKER: 'gpt-5.2-codex' };
+    const m = await o.draft({ prompt: 'Implemente uma nova tela de relatórios e rode os testes',
+      cwd: s.proj, runtime, team: true, teamModels: models });
+    assert.deepEqual(m.teamModels, models);
+    assert.deepEqual(o.updateTeamModel(m.id, 'WORKER', models.WORKER).selectedModel, models.WORKER);
+    await o.approve(m.id);
+    const done = await waitFor(() => {
+      const x = o.missions.get(m.id);
+      return x?.status === 'completed' && !o.running.has(m.id) ? x : null;
+    }, 25_000);
+    const calls = s.calls().filter(c => c.cli === (runtime === 'claude-code' ? 'claude' : 'codex')
+      && (c.args.includes('-p') || c.args[0] === 'exec'));
+    assert.equal(calls.length, 4);
+    for (const c of calls) {
+      const expected = c.stdin.includes('Papel da sua sessão: LEAD') ? models.LEAD : models.WORKER;
+      assert.equal(c.args[c.args.indexOf('--model') + 1], expected);
+    }
+    assert.equal(done.teamAgents.LEAD.requestedModel, models.LEAD);
+    assert.equal(done.teamAgents.WORKER.requestedModel, models.WORKER);
+    if (runtime === 'claude-code') assert.equal(done.teamAgents.LEAD.reportedModel, 'claude-test');
+    else assert.equal(done.teamAgents.LEAD.reportedModel, null, 'Codex must not falsely claim model verified');
+    assert.deepEqual(o.missionTeam(m.id).models, models);
+    assert.throws(() => o.updateTeamModel(m.id, 'LEAD', 'opus'), /terminou/);
+  }
+});
+
+test('Real team: rejects invalid model IDs and roles before any CLI work', async () => {
+  const s = sandbox();
+  const o = new Orchestrator({ env: s.env, dataDir: path.join(s.home, '.av'), control: true });
+  await assert.rejects(o.draft({ prompt: 'Implemente relatórios', cwd: s.proj, runtime: 'codex',
+    team: true, teamModels: { LEAD: '--dangerously-bypass-approvals-and-sandbox' } }), /Modelo inválido/);
+  const m = await o.draft({ prompt: 'Implemente relatórios', cwd: s.proj, runtime: 'codex', team: true });
+  assert.throws(() => o.updateTeamModel(m.id, 'LEAD', 'abc; rm -rf /'), /Modelo inválido/);
+  assert.throws(() => o.updateTeamModel(m.id, 'SPECTATOR', 'sonnet'), /Agente não configurável/);
+  assert.equal(o.updateTeamModel(m.id, 'LEAD', null).selectedModel, null);
+  assert.equal(s.calls().filter(c => c.args[0] === 'exec').length, 0);
+});
+
+test('Real team: model switch during execution is queued for the next unstarted turn', async () => {
+  const s = sandbox({ FAKE_RUN: 'slow' });
+  const o = new Orchestrator({ env: s.env, dataDir: path.join(s.home, '.av'), control: true });
+  const m = await o.draft({ prompt: 'Implemente uma nova tela de relatórios e rode os testes',
+    cwd: s.proj, runtime: 'claude-code', team: true, teamModels: { LEAD: 'sonnet', WORKER: 'sonnet' } });
+  await o.approve(m.id);
+  await waitFor(() => {
+    const agents = o.missions.get(m.id)?.teamAgents ?? {};
+    return agents.LEAD?.turns === 1 && agents.WORKER?.turns === 1 && agents.WORKER.status === 'running';
+  }, 25_000);
+  const result = o.updateTeamModel(m.id, 'LEAD', 'opus');
+  assert.equal(result.nextTurn, true);
+  assert.equal(result.appliedModel, 'sonnet');
+  await waitFor(() => {
+    const x = o.missions.get(m.id);
+    return x?.status === 'completed' && !o.running.has(m.id) ? x : null;
+  }, 30_000);
+  const leadCalls = s.calls().filter(c => c.cli === 'claude' && c.stdin?.includes('Papel da sua sessão: LEAD'));
+  assert.equal(leadCalls.length, 2);
+  assert.equal(leadCalls[0].args[leadCalls[0].args.indexOf('--model') + 1], 'sonnet');
+  assert.equal(leadCalls[1].args[leadCalls[1].args.indexOf('--model') + 1], 'opus');
+});
+
 test('Real team: failures block gate and never fabricate a review or final answer', async () => {
   const s = sandbox({ FAKE_RUN: 'fail' });
   const o = new Orchestrator({ env: s.env, dataDir: path.join(s.home, '.av'), control: true });
